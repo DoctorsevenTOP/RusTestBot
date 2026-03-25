@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(docker-compose *)",
+      "Bash(python *)",
+      "Bash(sqlite3 *)"
     ]
-  }
+  },
+  "$version": 3
 }

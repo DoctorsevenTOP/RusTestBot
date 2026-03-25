@@ -13,13 +13,99 @@ pip install -r requirements.txt
    - Скопируйте полученный токен
 
 3. Настройте `config.py`:
-   - Замените `YOUR_BOT_TOKEN_HERE` на ваш токен
-   - Замените `ADMIN_IDS` на ваши Telegram ID (можно узнать через @userinfobot)
+   - Замените токен на ваш
+   - `ADMIN_IDS` можно оставить пустым `[]` — администраторы управляются через SQLite
 
 ## Запуск
 
 ```bash
 python main.py
+```
+
+## Развёртывание на сервере
+
+### Быстрый старт с Docker:
+
+```bash
+# 1. Клонировать репозиторий
+git clone <repo>
+cd TgRusCheck
+
+# 2. Настроить config.py
+nano config.py
+
+# 3. Запустить через docker-compose
+docker-compose up -d
+
+# 4. Назначить администратора ВНУТРИ контейнера
+docker-compose exec bot python set_admin.py <telegram_id>
+
+# 5. Проверить работу
+docker-compose logs -f
+```
+
+### Миграция данных (если используете старую версию с JSON):
+
+```bash
+# Запустить миграцию внутри контейнера
+docker-compose exec bot python migrate.py
+
+# После успешной миграции можно удалить старые файлы
+docker-compose exec bot rm data/*.json
+```
+
+### Проверка прав доступа:
+```bash
+# Проверить владельца данных
+ls -la data/
+
+# Исправить права (если нужно)
+chmod 777 data/
+```
+
+### Команды Docker:
+```bash
+# Просмотр логов
+docker-compose logs -f
+
+# Перезапуск
+docker-compose restart
+
+# Остановка
+docker-compose down
+
+# Войти в контейнер для отладки
+docker-compose exec bot bash
+
+# Проверка базы данных
+docker-compose exec bot sqlite3 /app/data/bot.db ".tables"
+```
+
+### Отладка:
+Отправьте боту команду `/ping` — он покажет:
+- ✅ Работает ли бот
+- 📁 Путь к базе данных
+- ✅ Права на запись
+
+### Назначение администратора:
+
+**Важно:** Запускайте команду **внутри контейнера**, а не на хосте!
+
+```bash
+# Через docker-compose (рекомендуется)
+docker-compose exec bot python set_admin.py <telegram_id>
+
+# Или через docker
+docker exec <container_name> python set_admin.py <telegram_id>
+
+# Пример:
+docker-compose exec bot python set_admin.py 5153839634
+```
+
+**Проверка:**
+```bash
+# Проверить базу данных
+docker-compose exec bot sqlite3 /app/data/bot.db "SELECT * FROM users;"
 ```
 
 ## Функционал

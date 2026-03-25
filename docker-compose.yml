@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: rus_tester_bot
+    restart: unless-stopped
+    volumes:
+      # Постоянное хранилище для данных
+      - bot_data:/data
+    environment:
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bot_data:
+    name: rus_tester_bot_data

@@ -1,6 +1,8 @@
 """Telegram бот для проверки знаний по русскому языку"""
 import asyncio
 import logging
+import os
+import sqlite3
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery
@@ -14,7 +16,45 @@ import config
 import data_manager
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Логирование информации о сервере
+logger.info("=" * 50)
+logger.info("ЗАПУСК БОТА")
+logger.info(f"Working directory: {os.getcwd()}")
+logger.info(f"Script location: {os.path.dirname(os.path.abspath(__file__))}")
+logger.info(f"Data directory: {data_manager.DATA_DIR}")
+logger.info(f"Database file: {data_manager.DB_FILE}")
+logger.info(f"Database exists: {os.path.exists(data_manager.DB_FILE)}")
+
+# Проверяем права на запись
+try:
+    test_file = os.path.join(data_manager.DATA_DIR, ".write_test")
+    with open(test_file, "w") as f:
+        f.write("test")
+    os.remove(test_file)
+    logger.info("✅ Права на запись в data/: OK")
+except Exception as e:
+    logger.error(f"❌ НЕТ ПРАВ НА ЗАПИСЬ в {data_manager.DATA_DIR}: {e}")
+
+# Проверяем базу данных
+try:
+    conn = sqlite3.connect(data_manager.DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    user_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM users WHERE admin = 1")
+    admin_count = cursor.fetchone()[0]
+    conn.close()
+    logger.info(f"✅ База данных: OK (пользователей: {user_count}, администраторов: {admin_count})")
+except Exception as e:
+    logger.error(f"❌ ОШИБКА БАЗЫ ДАННЫХ: {e}")
+
+logger.info("=" * 50)
 
 # Инициализация бота
 bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -92,6 +132,8 @@ async def cmd_help(message: Message):
     text += "<b>👤 Для всех пользователей:</b>\n"
     text += "/start - Начать работу, узнать свой ID\n"
     text += "/help - Эта справка\n"
+    text += "/ping - Проверка работоспособности\n"
+    text += "/me - Мой профиль и статус\n"
     text += "📋 Список тестов - Пройти тест\n"
     text += "🏆 Таблица лидеров - Лучшие результаты\n"
     text += "📊 Мои результаты - История прохождений\n\n"
@@ -113,6 +155,53 @@ async def cmd_help(message: Message):
 
     text += "<i>Бот: Русский язык - Тесты и проверка знаний</i>"
 
+    await message.answer(text, parse_mode="HTML")
+
+
+# === Команда /ping ===
+@router.message(Command("ping"))
+async def cmd_ping(message: Message):
+    """Проверка работоспособности бота"""
+    import platform
+    
+    text = "🏓 <b>Pong!</b>\n\n"
+    text += f"✅ Бот работает\n"
+    text += f"🖥️ Сервер: {platform.system()} {platform.release()}\n"
+    text += f"📁 Директория данных: <code>{data_manager.DATA_DIR}</code>\n"
+    text += f"👤 Ваш ID: <code>{message.from_user.id}</code>\n"
+    
+    # Проверяем права на запись
+    try:
+        test_file = os.path.join(data_manager.DATA_DIR, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("test")
+        os.remove(test_file)
+        text += "\n✅ Права на запись: OK"
+    except Exception as e:
+        text += f"\n❌ Права на запись: ERROR - {e}"
+    
+    await message.answer(text, parse_mode="HTML")
+
+
+# === Команда /me ===
+@router.message(Command("me"))
+async def cmd_me(message: Message):
+    """Показать информацию о пользователе"""
+    user_id = message.from_user.id
+    user = data_manager.get_user(user_id)
+    
+    if user:
+        text = f"<b>👤 Ваш профиль:</b>\n\n"
+        text += f"Имя: <b>{user.get('name', 'N/A')}</b>\n"
+        text += f"ID: <code>{user_id}</code>\n"
+        text += f"Администратор: {'✅ Да' if user.get('admin') else '❌ Нет'}\n"
+        text += f"Зарегистрирован: <code>{user.get('registered_at', 'N/A')}</code>\n"
+        
+        if user.get('admin'):
+            text += f"Обновлено: <code>{user.get('admin_updated_at', 'N/A')}</code>\n"
+    else:
+        text = "❌ Вы ещё не зарегистрированы.\nНажмите /start для начала работы."
+    
     await message.answer(text, parse_mode="HTML")
 
 

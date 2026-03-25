@@ -1,131 +1,316 @@
-"""Модуль для работы с данными (пользователи, тесты, результаты)"""
+"""Модуль для работы с данными на SQLite"""
+import sqlite3
 import json
 import os
+import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import config
 
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
-def ensure_data_dir():
-    """Создать директорию для данных если не существует"""
-    os.makedirs("data", exist_ok=True)
+# Получаем абсолютный путь к директории проекта
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Проверяем наличие /data (для persistence mount)
+if os.path.exists("/data"):
+    DATA_DIR = "/data"
+    logger.info("Using /data for persistence mount")
+else:
+    DATA_DIR = os.path.join(BASE_DIR, "data")
+    logger.info("Using local data directory")
+
+DB_FILE = os.path.join(DATA_DIR, "bot.db")
 
 
-def load_json(filepath: str) -> Any:
-    """Загрузить данные из JSON файла"""
-    ensure_data_dir()
-    if not os.path.exists(filepath):
-        return {} if "users" in filepath or "tests" in filepath else []
+def get_connection():
+    """Получить соединение с базой данных"""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    """Инициализировать базу данных"""
+    logger.info(f"Initializing database: {DB_FILE}")
+    conn = get_connection()
+    cursor = conn.cursor()
     
-    with open(filepath, "r", encoding="utf-8") as f:
-        content = f.read().strip()
-        if not content:  # Пустой файл
-            return {} if "users" in filepath or "tests" in filepath else []
-        return json.loads(content)
-
-
-def save_json(filepath: str, data: Any):
-    """Сохранить данные в JSON файл"""
-    ensure_data_dir()
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    # Таблица пользователей
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            telegram_id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            admin INTEGER DEFAULT 0,
+            registered_at TEXT,
+            admin_updated_at TEXT
+        )
+    """)
+    
+    # Таблица тестов
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tests (
+            test_id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            active INTEGER DEFAULT 1,
+            created_by INTEGER,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    
+    # Таблица вопросов
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            test_id TEXT NOT NULL,
+            question_type TEXT DEFAULT 'single',
+            text TEXT NOT NULL,
+            answer TEXT,
+            options TEXT,
+            FOREIGN KEY (test_id) REFERENCES tests(test_id) ON DELETE CASCADE
+        )
+    """)
+    
+    # Таблица результатов
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            test_id TEXT NOT NULL,
+            score INTEGER,
+            total INTEGER,
+            percentage REAL,
+            answers TEXT,
+            completed_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(telegram_id),
+            FOREIGN KEY (test_id) REFERENCES tests(test_id)
+        )
+    """)
+    
+    # Индексы для ускорения
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_results_user ON results(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_results_test ON results(test_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_questions_test ON questions(test_id)")
+    
+    conn.commit()
+    conn.close()
+    logger.info("Database initialized successfully")
 
 
 # === Пользователи ===
-def get_users() -> Dict[str, Dict]:
-    """Получить всех пользователей"""
-    return load_json(config.USERS_FILE)
+def get_user(user_id: int) -> Optional[Dict]:
+    """Получить пользователя по ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return dict(row)
+    return None
 
 
 def is_name_taken(name: str) -> bool:
     """Проверить, занято ли имя"""
-    users = get_users()
-    name_lower = name.lower().strip()
-    for user in users.values():
-        if user.get("name", "").lower().strip() == name_lower:
-            return True
-    return False
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users WHERE LOWER(name) = LOWER(?)", (name.strip(),))
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count > 0
 
 
 def get_user_by_name(name: str) -> Optional[Dict]:
     """Получить пользователя по имени"""
-    users = get_users()
-    name_lower = name.lower().strip()
-    for user in users.values():
-        if user.get("name", "").lower().strip() == name_lower:
-            return user
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE LOWER(name) = LOWER(?)", (name.strip(),))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return dict(row)
     return None
 
 
 def save_user(user_id: int, name: str):
     """Сохранить или обновить пользователя"""
-    users = get_users()
-    user_data = users.get(str(user_id), {})
+    conn = get_connection()
+    cursor = conn.cursor()
     
-    users[str(user_id)] = {
-        "name": name,
-        "telegram_id": user_id,
-        "registered_at": datetime.now().isoformat(),
-        "admin": user_data.get("admin", False)  # Сохраняем статус администратора
-    }
-    save_json(config.USERS_FILE, users)
-
-
-def get_user(user_id: int) -> Optional[Dict]:
-    """Получить пользователя по ID"""
-    users = get_users()
-    return users.get(str(user_id))
+    # Проверяем существующего пользователя
+    cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (user_id,))
+    existing = cursor.fetchone()
+    
+    now = datetime.now().isoformat()
+    
+    if existing:
+        # Обновляем, сохраняя admin статус
+        cursor.execute("""
+            UPDATE users 
+            SET name = ?
+            WHERE telegram_id = ?
+        """, (name, user_id))
+        logger.info(f"Updated user: {user_id}, name: {name}, admin={existing['admin']}")
+    else:
+        # Создаём нового
+        cursor.execute("""
+            INSERT INTO users (telegram_id, name, registered_at)
+            VALUES (?, ?, ?)
+        """, (user_id, name, now))
+        logger.info(f"Created user: {user_id}, name: {name}")
+    
+    conn.commit()
+    conn.close()
+    
+    # Проверяем что сохранилось
+    verify_conn = get_connection()
+    verify_cursor = verify_conn.cursor()
+    verify_cursor.execute("SELECT name, admin FROM users WHERE telegram_id = ?", (user_id,))
+    saved = verify_cursor.fetchone()
+    verify_conn.close()
+    
+    if saved:
+        logger.info(f"Verified save: user_id={user_id}, name={saved['name']}, admin={saved['admin']}")
+    else:
+        logger.error(f"FAILED TO SAVE: user_id={user_id}")
 
 
 def is_admin(user_id: int) -> bool:
     """Проверить, является ли пользователь администратором"""
-    users = get_users()
-    user = users.get(str(user_id))
+    user = get_user(user_id)
     if user:
-        return user.get("admin", False)
-    # Fallback: проверяем ADMIN_IDS из config (для обратной совместимости)
+        return bool(user.get("admin", 0))
+    # Fallback на ADMIN_IDS из config
     return user_id in config.ADMIN_IDS
 
 
 def set_admin_status(user_id: int, admin: bool) -> bool:
-    """Установить статус администратора для пользователя"""
-    users = get_users()
-    if str(user_id) not in users:
+    """Установить статус администратора"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (user_id,))
+    if not cursor.fetchone():
+        conn.close()
         return False
     
-    users[str(user_id)]["admin"] = admin
-    users[str(user_id)]["admin_updated_at"] = datetime.now().isoformat()
-    save_json(config.USERS_FILE, users)
+    cursor.execute("""
+        UPDATE users 
+        SET admin = ?, admin_updated_at = ?
+        WHERE telegram_id = ?
+    """, (1 if admin else 0, datetime.now().isoformat(), user_id))
+    
+    conn.commit()
+    conn.close()
+    logger.info(f"Set admin={admin} for user {user_id}")
     return True
 
 
 def get_all_admins() -> List[Dict]:
     """Получить всех администраторов"""
-    users = get_users()
-    return [
-        {"user_id": int(uid), **data}
-        for uid, data in users.items()
-        if data.get("admin", False)
-    ]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE admin = 1")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 # === Тесты ===
 def get_tests(only_active: bool = False) -> Dict[str, Dict]:
-    """Получить все тесты (опционально только активные)"""
-    tests = load_json(config.TESTS_FILE)
+    """Получить все тесты с вопросами"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
     if only_active:
-        return {tid: t for tid, t in tests.items() if t.get("active", True)}
+        cursor.execute("SELECT * FROM tests WHERE active = 1")
+    else:
+        cursor.execute("SELECT * FROM tests")
+    
+    tests_rows = cursor.fetchall()
+    tests = {}
+    
+    for test in tests_rows:
+        test_id = test["test_id"]
+        test_dict = dict(test)
+        
+        # Получаем вопросы
+        cursor.execute("SELECT * FROM questions WHERE test_id = ?", (test_id,))
+        questions = []
+        for q in cursor.fetchall():
+            q_dict = dict(q)
+            # Парсим options из JSON
+            if q_dict.get("options"):
+                q_dict["options"] = json.loads(q_dict["options"])
+            # Парсим answer для multiple choice
+            if q_dict.get("answer") and q_dict.get("question_type") == "multiple":
+                try:
+                    q_dict["answer"] = json.loads(q_dict["answer"])
+                except:
+                    pass
+            questions.append(q_dict)
+        
+        test_dict["questions"] = questions
+        tests[test_id] = test_dict
+    
+    conn.close()
     return tests
 
 
 def save_test(test_id: str, test_data: Dict):
     """Сохранить тест"""
-    tests = get_tests()
-    # По умолчанию тест активен
-    if "active" not in test_data:
-        test_data["active"] = True
-    tests[test_id] = test_data
-    save_json(config.TESTS_FILE, tests)
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    now = datetime.now().isoformat()
+    
+    # Проверяем существует ли тест
+    cursor.execute("SELECT * FROM tests WHERE test_id = ?", (test_id,))
+    exists = cursor.fetchone()
+    
+    if exists:
+        cursor.execute("""
+            UPDATE tests 
+            SET title = ?, description = ?, active = ?, updated_at = ?
+            WHERE test_id = ?
+        """, (test_data["title"], test_data.get("description", ""), 
+              1 if test_data.get("active", True) else 0, now, test_id))
+        
+        # Удаляем старые вопросы
+        cursor.execute("DELETE FROM questions WHERE test_id = ?", (test_id,))
+    else:
+        cursor.execute("""
+            INSERT INTO tests (test_id, title, description, active, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (test_id, test_data["title"], test_data.get("description", ""),
+              1 if test_data.get("active", True) else 0,
+              test_data.get("created_by"), now))
+    
+    # Добавляем вопросы
+    for q in test_data.get("questions", []):
+        options = None
+        answer = q.get("answer")
+        
+        # Сериализуем options и answer для multiple choice
+        if q.get("options"):
+            options = json.dumps(q["options"], ensure_ascii=False)
+        if q.get("type") == "multiple" and isinstance(answer, list):
+            answer = json.dumps(answer, ensure_ascii=False)
+        
+        cursor.execute("""
+            INSERT INTO questions (test_id, question_type, text, answer, options)
+            VALUES (?, ?, ?, ?, ?)
+        """, (test_id, q.get("type", "single"), q["text"], answer, options))
+    
+    conn.commit()
+    conn.close()
+    logger.info(f"Saved test: {test_id}")
 
 
 def get_test(test_id: str) -> Optional[Dict]:
@@ -135,111 +320,203 @@ def get_test(test_id: str) -> Optional[Dict]:
 
 
 def toggle_test_active(test_id: str) -> Optional[bool]:
-    """Переключить статус активности теста. Возвращает новый статус или None если тест не найден"""
-    tests = get_tests()
-    if test_id not in tests:
+    """Переключить статус активности теста"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT active FROM tests WHERE test_id = ?", (test_id,))
+    row = cursor.fetchone()
+    
+    if not row:
+        conn.close()
         return None
     
-    current_status = tests[test_id].get("active", True)
-    tests[test_id]["active"] = not current_status
-    tests[test_id]["updated_at"] = datetime.now().isoformat()
-    save_json(config.TESTS_FILE, tests)
-    return not current_status
+    new_status = 0 if row["active"] else 1
+    cursor.execute("""
+        UPDATE tests 
+        SET active = ?, updated_at = ?
+        WHERE test_id = ?
+    """, (new_status, datetime.now().isoformat(), test_id))
+    
+    conn.commit()
+    conn.close()
+    return bool(new_status)
 
 
 def set_test_active(test_id: str, active: bool) -> bool:
-    """Установить статус активности теста. Возвращает True если успешно"""
-    tests = get_tests()
-    if test_id not in tests:
+    """Установить статус активности теста"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM tests WHERE test_id = ?", (test_id,))
+    if not cursor.fetchone():
+        conn.close()
         return False
     
-    tests[test_id]["active"] = active
-    tests[test_id]["updated_at"] = datetime.now().isoformat()
-    save_json(config.TESTS_FILE, tests)
+    cursor.execute("""
+        UPDATE tests 
+        SET active = ?, updated_at = ?
+        WHERE test_id = ?
+    """, (1 if active else 0, datetime.now().isoformat(), test_id))
+    
+    conn.commit()
+    conn.close()
     return True
 
 
-def delete_test(test_id: str):
+def delete_test(test_id: str) -> bool:
     """Удалить тест"""
-    tests = get_tests()
-    if test_id in tests:
-        del tests[test_id]
-        save_json(config.TESTS_FILE, tests)
-        return True
-    return False
-
-
-def generate_test_id() -> str:
-    """Сгенерировать уникальный ID для теста"""
-    tests = get_tests()
-    test_id = str(len(tests) + 1)
-    while test_id in tests:
-        test_id = str(int(test_id) + 1)
-    return test_id
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM tests WHERE test_id = ?", (test_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return False
+    
+    # Вопросы удалятся каскадно
+    cursor.execute("DELETE FROM tests WHERE test_id = ?", (test_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
 
 
 # === Результаты ===
 def get_results() -> List[Dict]:
     """Получить все результаты"""
-    return load_json(config.RESULTS_FILE)
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM results ORDER BY completed_at DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    results = []
+    for row in rows:
+        r = dict(row)
+        # Парсим answers из JSON
+        if r.get("answers"):
+            r["answers"] = json.loads(r["answers"])
+        results.append(r)
+    
+    return results
 
 
 def save_result(user_id: int, test_id: str, score: int, total: int, answers: List[Dict]):
     """Сохранить результат теста"""
-    results = get_results()
-    result = {
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    percentage = round(score / total * 100, 1) if total > 0 else 0
+    now = datetime.now().isoformat()
+    answers_json = json.dumps(answers, ensure_ascii=False)
+    
+    cursor.execute("""
+        INSERT INTO results (user_id, test_id, score, total, percentage, answers, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, test_id, score, total, percentage, answers_json, now))
+    
+    conn.commit()
+    conn.close()
+    
+    return {
         "user_id": user_id,
         "test_id": test_id,
         "score": score,
         "total": total,
-        "percentage": round(score / total * 100, 1) if total > 0 else 0,
+        "percentage": percentage,
         "answers": answers,
-        "completed_at": datetime.now().isoformat()
+        "completed_at": now
     }
-    results.append(result)
-    save_json(config.RESULTS_FILE, results)
-    return result
 
 
 def get_test_results(test_id: str) -> List[Dict]:
     """Получить результаты конкретного теста"""
-    results = get_results()
-    return [r for r in results if r["test_id"] == test_id]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM results WHERE test_id = ? ORDER BY percentage DESC", (test_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    results = []
+    for row in rows:
+        r = dict(row)
+        if r.get("answers"):
+            r["answers"] = json.loads(r["answers"])
+        results.append(r)
+    
+    return results
 
 
 def get_user_results(user_id: int) -> List[Dict]:
     """Получить результаты пользователя"""
-    results = get_results()
-    return [r for r in results if r["user_id"] == user_id]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM results WHERE user_id = ? ORDER BY completed_at DESC", (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    results = []
+    for row in rows:
+        r = dict(row)
+        if r.get("answers"):
+            r["answers"] = json.loads(r["answers"])
+        results.append(r)
+    
+    return results
 
 
 def get_leaderboard(test_id: str, limit: int = 10) -> List[Dict]:
-    """Получить таблицу лидеров для теста (группировка по имени, лучший результат)"""
-    results = get_test_results(test_id)
+    """Получить таблицу лидеров (лучший результат для каждого пользователя)"""
+    conn = get_connection()
+    cursor = conn.cursor()
     
-    if not results:
-        return []
+    # Получаем лучший результат для каждого пользователя
+    cursor.execute("""
+        SELECT r.user_id, MAX(r.percentage) as max_percentage
+        FROM results r
+        WHERE r.test_id = ?
+        GROUP BY r.user_id
+        ORDER BY max_percentage DESC
+        LIMIT ?
+    """, (test_id, limit))
     
-    # Группируем по user_id, берём лучший результат
-    user_best_results = {}
-    for r in results:
-        uid = r["user_id"]
-        if uid not in user_best_results or r["percentage"] > user_best_results[uid]["percentage"]:
-            user_best_results[uid] = r
-    
-    # Сортируем по проценту правильных ответов (убывание)
-    sorted_results = sorted(user_best_results.values(), key=lambda x: x["percentage"], reverse=True)
-
+    best_results = cursor.fetchall()
     leaderboard = []
-    for r in sorted_results[:limit]:
-        user = get_user(r["user_id"])
-        leaderboard.append({
-            "name": user["name"] if user else "Неизвестный",
-            "score": r["score"],
-            "total": r["total"],
-            "percentage": r["percentage"],
-            "date": r["completed_at"][:10],  # Дата
-            "time": r["completed_at"][11:19],  # Время
-            "completed_at": r["completed_at"]  # Полная дата и время
-        })
+    
+    for row in best_results:
+        user_id = row["user_id"]
+        
+        # Получаем полную информацию о лучшем результате
+        cursor.execute("""
+            SELECT * FROM results 
+            WHERE user_id = ? AND test_id = ? AND percentage = ?
+            ORDER BY completed_at DESC
+            LIMIT 1
+        """, (user_id, test_id, row["max_percentage"]))
+        
+        result = cursor.fetchone()
+        if result:
+            r = dict(result)
+            
+            # Получаем имя пользователя
+            cursor.execute("SELECT name FROM users WHERE telegram_id = ?", (user_id,))
+            user_row = cursor.fetchone()
+            name = user_row["name"] if user_row else "Неизвестный"
+            
+            leaderboard.append({
+                "name": name,
+                "score": r["score"],
+                "total": r["total"],
+                "percentage": r["percentage"],
+                "date": r["completed_at"][:10],
+                "time": r["completed_at"][11:19],
+                "completed_at": r["completed_at"]
+            })
+    
+    conn.close()
     return leaderboard
+
+
+# Инициализация БД при импорте
+init_db()

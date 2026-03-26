@@ -82,6 +82,10 @@ class TakeTest(StatesGroup):
     answering = State()
 
 
+class BecomeAdmin(StatesGroup):
+    waiting_for_code = State()
+
+
 # === Вспомогательные функции ===
 def get_main_keyboard(is_admin_user: bool) -> ReplyKeyboardMarkup:
     """Получить главное меню"""
@@ -92,6 +96,7 @@ def get_main_keyboard(is_admin_user: bool) -> ReplyKeyboardMarkup:
     ]
     if is_admin_user:
         buttons.append([KeyboardButton(text="➕ Создать тест")])
+        buttons.append([KeyboardButton(text="👥 Администраторы")])
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
 
@@ -134,6 +139,7 @@ async def cmd_help(message: Message):
     text += "/help - Эта справка\n"
     text += "/ping - Проверка работоспособности\n"
     text += "/me - Мой профиль и статус\n"
+    text += "/admin - Стать администратором (по коду)\n"
     text += "📋 Список тестов - Пройти тест\n"
     text += "🏆 Таблица лидеров - Лучшие результаты\n"
     text += "📊 Мои результаты - История прохождений\n\n"
@@ -145,6 +151,7 @@ async def cmd_help(message: Message):
         text += "/toggle_test - Вкл/выкл тесты\n"
         text += "/toggle_test <code>&lt;ID&gt;</code> - Переключить статус теста\n"
         text += "/set_admin <code>&lt;ID&gt; &lt;0|1&gt;</code> - Права администратора\n"
+        text += "/admins - Список администраторов\n"
         text += "/cancel - Отмена действия\n\n"
 
     text += "<b>ℹ️ Дополнительно:</b>\n"
@@ -189,20 +196,112 @@ async def cmd_me(message: Message):
     """Показать информацию о пользователе"""
     user_id = message.from_user.id
     user = data_manager.get_user(user_id)
-    
+
     if user:
         text = f"<b>👤 Ваш профиль:</b>\n\n"
         text += f"Имя: <b>{user.get('name', 'N/A')}</b>\n"
         text += f"ID: <code>{user_id}</code>\n"
         text += f"Администратор: {'✅ Да' if user.get('admin') else '❌ Нет'}\n"
-        text += f"Зарегистрирован: <code>{user.get('registered_at', 'N/A')}</code>\n"
         
+        reg_date = user.get('registered_at', 'N/A')
+        if reg_date != 'N/A':
+            reg_date = data_manager.format_date_msk(reg_date)
+        text += f"Зарегистрирован: <code>{reg_date}</code>\n"
+
         if user.get('admin'):
-            text += f"Обновлено: <code>{user.get('admin_updated_at', 'N/A')}</code>\n"
+            admin_date = user.get('admin_updated_at', 'N/A')
+            if admin_date != 'N/A':
+                admin_date = data_manager.format_date_msk(admin_date)
+            text += f"Админ с: <code>{admin_date}</code>\n"
     else:
         text = "❌ Вы ещё не зарегистрированы.\nНажмите /start для начала работы."
-    
+
     await message.answer(text, parse_mode="HTML")
+
+
+# === Команда /admin - стать администратором ===
+@router.message(Command("admin"))
+async def cmd_admin(message: Message, state: FSMContext):
+    """Начать процесс получения прав администратора"""
+    user = data_manager.get_user(message.from_user.id)
+    
+    if user and user.get("admin"):
+        await message.answer("✅ Вы уже являетесь администратором!")
+        return
+    
+    await message.answer(
+        "🔐 <b>Введите код администратора</b>\n\n"
+        "Отправьте код для получения прав администратора:\n"
+        "<i>(код можно узнать у разработчика)</i>\n\n"
+        "Нажмите /cancel для отмены"
+    )
+    await state.set_state(BecomeAdmin.waiting_for_code)
+
+
+@router.message(BecomeAdmin.waiting_for_code)
+async def process_admin_code(message: Message, state: FSMContext):
+    """Проверка кода администратора"""
+    code = message.text.strip()
+    
+    # Правильный код
+    if code == "6418237":
+        # Назначаем администратором
+        data_manager.set_admin_status(message.from_user.id, True)
+        
+        await state.clear()
+        await message.answer(
+            "✅ <b>Поздравляем!</b>\n\n"
+            "Вы получили права администратора.\n\n"
+            "Теперь вам доступны команды:\n"
+            "➕ Создать тест\n"
+            "/load_test - Загрузка теста из JSON\n"
+            "/toggle_test - Вкл/выкл тесты\n"
+            "/admins - Список администраторов\n\n"
+            "Выберите действие в меню:",
+            reply_markup=get_main_keyboard(True)
+        )
+    else:
+        await message.answer(
+            "❌ <b>Неверный код!</b>\n\n"
+            "Пожалуйста, проверьте код и попробуйте снова.\n\n"
+            "Нажмите /cancel для отмены или введите правильный код:"
+        )
+
+
+# === Команда /admins - список администраторов ===
+@router.message(Command("admins"))
+async def cmd_admins(message: Message):
+    """Показать список всех администраторов"""
+    user = data_manager.get_user(message.from_user.id)
+
+    # Показываем только администраторам
+    if not user or not user.get("admin"):
+        await message.answer("❌ Эта команда доступна только администраторам.")
+        return
+
+    admins = data_manager.get_all_admins()
+
+    if not admins:
+        await message.answer("❌ Нет администраторов.")
+        return
+
+    text = "👥 <b>Список администраторов:</b>\n\n"
+    for i, admin in enumerate(admins, 1):
+        name = admin.get("name", "Неизвестный")
+        user_id = admin.get("telegram_id", "?")
+        admin_since = admin.get("admin_updated_at", "")
+        if admin_since:
+            admin_since = data_manager.format_date_msk(admin_since)
+
+        text += f"{i}. <b>{name}</b>\n"
+        text += f"   ID: <code>{user_id}</code>\n"
+        if admin_since:
+            text += f"   Админ с: {admin_since}\n\n"
+        else:
+            text += "\n"
+
+    text += f"Всего администраторов: <b>{len(admins)}</b>"
+    await message.answer(text)
 
 
 @router.message(WaitForName.waiting_for_name)
@@ -237,6 +336,13 @@ async def process_name(message: Message, state: FSMContext):
         f"Выбери действие в меню:",
         reply_markup=get_main_keyboard(data_manager.is_admin(message.from_user.id))
     )
+
+
+# === Администраторы (кнопка) ===
+@router.message(F.text == "👥 Администраторы")
+async def show_admins_button(message: Message):
+    """Показать список администраторов (кнопка)"""
+    await cmd_admins(message)
 
 
 # === Список тестов ===
@@ -294,11 +400,18 @@ async def begin_test(callback: CallbackQuery, state: FSMContext):
 async def show_question(message, question, question_num, total):
     """Показать вопрос с вариантами ответов или полем ввода"""
     q_type = question.get("type", "single")
+    options = question.get("options")
+    answer = question.get("answer")
     
-    if q_type == "multiple" and question.get("options"):
+    # Проверяем множественный выбор по типу или по структуре answer
+    is_multiple = (q_type == "multiple" or 
+                   isinstance(answer, list) or
+                   (options is not None))
+    
+    if is_multiple and options:
         # Множественный выбор - создаём inline-кнопки
         buttons = []
-        for i, option in enumerate(question["options"]):
+        for i, option in enumerate(options):
             buttons.append([InlineKeyboardButton(text=option, callback_data=f"answer_option_{i}")])
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -329,7 +442,7 @@ async def show_question(message, question, question_num, total):
 async def handle_option_select(callback: CallbackQuery, state: FSMContext):
     """Обработка выбора варианта ответа"""
     data = await state.get_data()
-    selected = data.get("selected_options", [])
+    selected = data.get("selected_options") or []  # Если None, создаём пустой список
     
     option_idx = int(callback.data.replace("answer_option_", ""))
     
@@ -339,7 +452,30 @@ async def handle_option_select(callback: CallbackQuery, state: FSMContext):
         selected.append(option_idx)
     
     await state.update_data(selected_options=selected)
-    await callback.answer(f"Выбрано: {len(selected)}")
+    
+    # Обновляем кнопки, показывая выбранные галочками
+    try:
+        data = await state.get_data()
+        test_id = data["current_test_id"]
+        current_question = data["current_question"]
+        test = data_manager.get_test(test_id)
+        question = test["questions"][current_question]
+        
+        # Создаём кнопки с выделением выбранных
+        buttons = []
+        for i, option in enumerate(question["options"]):
+            if i in selected:
+                button_text = f"✅ {option}"
+            else:
+                button_text = option
+            buttons.append([InlineKeyboardButton(text=button_text, callback_data=f"answer_option_{i}")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await callback.message.edit_reply_markup(reply_markup=keyboard)
+    except:
+        pass  # Игнорируем если нельзя редактировать
+    
+    await callback.answer()
 
 
 @router.callback_query(F.data == "answer_done")
@@ -426,13 +562,22 @@ async def process_test_answer(message: Message, state: FSMContext):
     test = data_manager.get_test(test_id)
     question = test["questions"][current_question]
     
+    q_type = question.get("type", "single")
+
     # Если вопрос с множественным выбором, игнорируем текст
-    if question.get("type") == "multiple":
+    if q_type == "multiple" or isinstance(question.get("answer"), list):
         await message.answer("<i>Для этого вопроса используйте кнопки выше</i>")
         return
 
     user_answer = message.text.strip()
-    is_correct = user_answer.lower() == question["answer"].lower()
+    correct_answer = question["answer"]
+    
+    # Для совместимости: если answer это список (старые тесты)
+    if isinstance(correct_answer, list):
+        await message.answer("<i>Для этого вопроса используйте кнопки выше</i>")
+        return
+    
+    is_correct = user_answer.lower() == correct_answer.lower()
 
     if is_correct:
         score += 1
@@ -510,12 +655,18 @@ async def show_test_leaderboard(callback: CallbackQuery):
 
     text = f"<b>🏆 Таблица лидеров: {test['title']}</b>\n"
     text += "<i>(показан лучший результат для каждого пользователя)</i>\n\n"
-    
+
     for i, entry in enumerate(leaderboard, 1):
         medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
         text += f"{medal} <b>{entry['name']}</b> — {entry['score']}/{entry['total']} ({entry['percentage']}%)\n"
-        text += f"   📅 {entry['date']} в {entry['time']}\n\n"
-    
+        # Форматируем дату в MSK
+        completed_at = entry.get('completed_at', '')
+        if completed_at:
+            formatted_date = data_manager.format_date_msk(completed_at)
+            text += f"   📅 {formatted_date}\n\n"
+        else:
+            text += f"   📅 {entry['date']} в {entry['time']}\n\n"
+
     await callback.message.answer(text)
     await callback.answer()
 
@@ -526,20 +677,21 @@ async def show_my_results(message: Message):
     """Показать результаты пользователя"""
     user_id = message.from_user.id
     results = data_manager.get_user_results(user_id)
-    
+
     if not results:
         await message.answer("У тебя пока нет пройденных тестов.")
         return
-    
+
     text = "<b>📊 Твои результаты:</b>\n\n"
     for r in results:
         test = data_manager.get_test(r["test_id"])
         test_name = test["title"] if test else f"Тест #{r['test_id']}"
-        date = r["completed_at"][:10]
+        # Форматируем дату в MSK
+        date = data_manager.format_date_msk(r["completed_at"])
         text += f"<b>{test_name}</b>\n"
         text += f"Результат: {r['score']}/{r['total']} ({r['percentage']}%)\n"
         text += f"Дата: {date}\n\n"
-    
+
     await message.answer(text)
 
 

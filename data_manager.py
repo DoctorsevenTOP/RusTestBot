@@ -4,11 +4,34 @@ import json
 import os
 import logging
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import config
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
+
+# Часовой пояс MSK (UTC+3)
+MSK_TZ = timezone(timedelta(hours=3))
+
+
+def get_now_msk() -> str:
+    """Получить текущее время в формате ISO для MSK (UTC+3)"""
+    return datetime.now(MSK_TZ).isoformat()
+
+
+def format_date_msk(iso_date: str) -> str:
+    """Форматировать дату из ISO в читаемый вид MSK"""
+    try:
+        dt = datetime.fromisoformat(iso_date)
+        # Если нет timezone info, считаем что это UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        # Конвертируем в MSK
+        dt_msk = dt.astimezone(MSK_TZ)
+        return dt_msk.strftime("%d.%m.%Y %H:%M")
+    except:
+        return iso_date[:16].replace("T", " ")
+
 
 # Получаем абсолютный путь к директории проекта
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -147,7 +170,7 @@ def save_user(user_id: int, name: str):
     cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (user_id,))
     existing = cursor.fetchone()
     
-    now = datetime.now().isoformat()
+    now = get_now_msk()
     
     if existing:
         # Обновляем, сохраняя admin статус
@@ -204,7 +227,7 @@ def set_admin_status(user_id: int, admin: bool) -> bool:
         UPDATE users 
         SET admin = ?, admin_updated_at = ?
         WHERE telegram_id = ?
-    """, (1 if admin else 0, datetime.now().isoformat(), user_id))
+    """, (1 if admin else 0, get_now_msk(), user_id))
     
     conn.commit()
     conn.close()
@@ -263,12 +286,26 @@ def get_tests(only_active: bool = False) -> Dict[str, Dict]:
     return tests
 
 
+def generate_test_id() -> str:
+    """Сгенерировать уникальный ID для теста"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Получаем максимальный ID
+    cursor.execute("SELECT MAX(CAST(test_id AS INTEGER)) FROM tests")
+    row = cursor.fetchone()
+    max_id = row[0] if row and row[0] else 0
+    
+    conn.close()
+    return str(max_id + 1)
+
+
 def save_test(test_id: str, test_data: Dict):
     """Сохранить тест"""
     conn = get_connection()
     cursor = conn.cursor()
     
-    now = datetime.now().isoformat()
+    now = get_now_msk()
     
     # Проверяем существует ли тест
     cursor.execute("SELECT * FROM tests WHERE test_id = ?", (test_id,))
@@ -336,7 +373,7 @@ def toggle_test_active(test_id: str) -> Optional[bool]:
         UPDATE tests 
         SET active = ?, updated_at = ?
         WHERE test_id = ?
-    """, (new_status, datetime.now().isoformat(), test_id))
+    """, (new_status, get_now_msk(), test_id))
     
     conn.commit()
     conn.close()
@@ -357,7 +394,7 @@ def set_test_active(test_id: str, active: bool) -> bool:
         UPDATE tests 
         SET active = ?, updated_at = ?
         WHERE test_id = ?
-    """, (1 if active else 0, datetime.now().isoformat(), test_id))
+    """, (1 if active else 0, get_now_msk(), test_id))
     
     conn.commit()
     conn.close()
@@ -408,7 +445,7 @@ def save_result(user_id: int, test_id: str, score: int, total: int, answers: Lis
     cursor = conn.cursor()
     
     percentage = round(score / total * 100, 1) if total > 0 else 0
-    now = datetime.now().isoformat()
+    now = get_now_msk()
     answers_json = json.dumps(answers, ensure_ascii=False)
     
     cursor.execute("""

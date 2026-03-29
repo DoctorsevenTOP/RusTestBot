@@ -152,6 +152,7 @@ async def cmd_help(message: Message):
         text += "<b>🔧 Для администраторов:</b>\n"
         text += "➕ Создать тест - Интерактивное создание\n"
         text += "/edit_test - Редактор тестов (Mini App)\n"
+        text += "/export_test <ID> - Экспорт теста в JSON\n"
         text += "/load_test - Загрузка теста из JSON\n"
         text += "/toggle_test - Вкл/выкл тесты\n"
         text += "/delete_test - Удалить тест\n"
@@ -294,6 +295,51 @@ async def cmd_edit_test(message: Message):
     )
 
 
+# === Экспорт теста в JSON ===
+@router.message(Command("export_test"))
+async def cmd_export_test(message: Message):
+    """Экспортировать тест в JSON"""
+    if not data_manager.is_admin(message.from_user.id):
+        await message.answer("❌ Эта команда доступна только администраторам.")
+        return
+    
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer(
+            "Использование: <code>/export_test &lt;ID&gt;</code>\n\n"
+            "Пример: <code>/export_test 1</code>"
+        )
+        return
+    
+    test_id = args[1].strip()
+    test = data_manager.get_test(test_id)
+    
+    if not test:
+        await message.answer(f"❌ Тест с ID <code>{test_id}</code> не найден")
+        return
+    
+    # Формируем JSON
+    import json
+    export_data = {
+        "title": test["title"],
+        "description": test.get("description", ""),
+        "active": test.get("active", True),
+        "questions": test.get("questions", [])
+    }
+    
+    json_text = json.dumps(export_data, ensure_ascii=False, indent=2)
+    
+    # Отправляем файлом
+    from io import BytesIO
+    json_bytes = BytesIO(json_text.encode('utf-8'))
+    json_bytes.name = f"test_{test_id}.json"
+    
+    await message.answer_document(
+        json_bytes,
+        caption=f"📄 Тест: {test['title']}\nID: {test_id}"
+    )
+
+
 @router.message(F.web_app_data)
 async def handle_editor_result(message: Message):
     """Обработка данных из редактора"""
@@ -306,7 +352,7 @@ async def handle_editor_result(message: Message):
         
         action = data.get("action")
         
-        if action == "get_tests":
+        if action == "get_tests_list":
             # Отправляем список тестов
             tests = data_manager.get_tests()
             tests_list = [
@@ -319,9 +365,16 @@ async def handle_editor_result(message: Message):
                 for tid, t in tests.items()
             ]
             
-            # Отправляем обратно в Mini App через notify
-            # (нужно реализовать через bot.answer_web_app_query или notify)
-            await message.answer("📋 Список тестов отправлен в редактор")
+            # Отправляем список в редактор
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📚 Обновить список", callback_data="refresh_tests")]
+            ])
+            await message.answer(
+                "📋 Список тестов отправлен в редактор",
+                reply_markup=keyboard
+            )
+            # Для Mini App нужно использовать answer_web_app_query
+            # Это упрощённая версия
             
         elif action == "create_test":
             # Создаём новый тест
@@ -343,6 +396,38 @@ async def handle_editor_result(message: Message):
                 f"Название: {data['title']}\n"
                 f"Вопросов: {len(data['questions'])}\n\n"
                 f"Теперь пользователи могут проходить этот тест."
+            )
+            
+        elif action == "update_test":
+            # Обновляем существующий тест
+            test_id = data.get("test_id")
+            
+            if not test_id:
+                await message.answer("❌ Не указан ID теста")
+                return
+            
+            test = data_manager.get_test(test_id)
+            if not test:
+                await message.answer(f"❌ Тест с ID <code>{test_id}</code> не найден")
+                return
+            
+            test_data = {
+                "title": data["title"],
+                "description": data.get("description", ""),
+                "active": test.get("active", True),
+                "questions": data["questions"],
+                "updated_by": message.from_user.id,
+                "updated_at": data_manager.get_now_msk()
+            }
+            
+            data_manager.save_test(test_id, test_data)
+            
+            await message.answer(
+                f"✅ <b>Тест обновлён!</b>\n\n"
+                f"ID: <code>{test_id}</code>\n"
+                f"Название: {data['title']}\n"
+                f"Вопросов: {len(data['questions'])}\n\n"
+                f"Изменения применены."
             )
             
     except Exception as e:
@@ -388,7 +473,7 @@ async def launch_insert_app(callback: CallbackQuery):
     from urllib.parse import quote
     
     # В реальном проекте замените на ваш URL хостинга
-    app_url = f"https://your-domain.com/miniapp.html?data={quote(json.dumps(app_data))}"
+    app_url = f"https://doctorseventop.github.io/RusTestBot/miniapp.html?data={quote(json.dumps(app_data))}"
     
     # Для локального тестирования можно использовать GitHub Pages или аналогичный хостинг
     

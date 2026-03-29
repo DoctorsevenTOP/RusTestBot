@@ -281,7 +281,7 @@ async def cmd_edit_test(message: Message):
         return
     
     # URL редактора (замените на ваш хостинг)
-    editor_url = "https://your-domain.com/editor.html"
+    editor_url = "https://doctorseventop.github.io/RusTestBot/editor"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📝 Открыть редактор", web_app={"url": editor_url})]

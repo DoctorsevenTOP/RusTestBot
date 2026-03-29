@@ -5,401 +5,243 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Конструктор тестов - Русский язык</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-
-        h1 {
-            text-align: center;
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 28px;
+        h1 { text-align: center; color: #667eea; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 20px; font-size: 14px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
+        .tab-btn {
+            flex: 1; padding: 12px 20px; border: none; background: #f0f0f0;
+            border-radius: 10px 10px 0 0; cursor: pointer; font-weight: 600; transition: all 0.3s;
         }
-
-        .subtitle {
-            text-align: center;
-            color: #888;
-            margin-bottom: 30px;
-            font-size: 14px;
+        .tab-btn.active { background: #667eea; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; }
+        input[type="text"], textarea {
+            width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0;
+            border-radius: 10px; font-size: 14px; transition: border-color 0.3s;
         }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        input[type="text"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus,
-        textarea:focus,
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: #667eea; }
+        textarea { resize: vertical; min-height: 80px; }
         .question-card {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-            position: relative;
+            background: #f8f9fa; border-radius: 15px; padding: 20px;
+            margin-bottom: 20px; border-left: 4px solid #667eea; position: relative;
         }
-
-        .question-card:hover {
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .question-card.multiple-choice {
-            border-left-color: #f093fb;
-        }
-
-        .question-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
+        .question-card:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .question-card.multiple-choice { border-left-color: #f093fb; }
+        .question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .question-number {
-            background: #667eea;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
+            background: #667eea; color: white; padding: 5px 15px;
+            border-radius: 20px; font-size: 12px; font-weight: 600;
         }
-
-        .question-type-badge {
-            background: #f093fb;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 11px;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-
         .btn-remove {
-            background: #ff4757;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background 0.3s;
+            background: #ff4757; color: white; border: none; padding: 8px 15px;
+            border-radius: 8px; cursor: pointer; font-size: 12px; transition: background 0.3s;
         }
-
-        .btn-remove:hover {
-            background: #ff3344;
-        }
-
+        .btn-remove:hover { background: #ff3344; }
         .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
+            padding: 12px 25px; border: none; border-radius: 10px;
+            cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s;
         }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-
-        .btn-success {
-            background: #2ed573;
-            color: white;
-            width: 100%;
-        }
-
-        .btn-success:hover {
-            background: #26c966;
-            transform: translateY(-2px);
-        }
-
-        .btn-secondary {
-            background: #dfe4ea;
-            color: #333;
-            margin-right: 10px;
-        }
-
-        .btn-secondary:hover {
-            background: #ced6e0;
-        }
-
-        .btn-small {
-            padding: 8px 15px;
-            font-size: 12px;
-        }
-
-        .buttons-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .questions-container {
-            margin-top: 30px;
-        }
-
+        .btn-primary { background: #667eea; color: white; width: 100%; margin-bottom: 10px; }
+        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); }
+        .btn-success { background: #2ed573; color: white; width: 100%; }
+        .btn-success:hover { background: #26c966; transform: translateY(-2px); }
+        .btn-secondary { background: #dfe4ea; color: #333; margin-right: 10px; }
+        .btn-secondary:hover { background: #ced6e0; }
+        .btn-small { padding: 8px 15px; font-size: 12px; }
+        .buttons-row { display: flex; gap: 10px; margin-top: 20px; }
+        .questions-container { margin-top: 30px; }
         .info-box {
-            background: #e8f4fd;
-            border: 1px solid #b3d9ff;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            color: #0066cc;
-            font-size: 13px;
+            background: #e8f4fd; border: 1px solid #b3d9ff; border-radius: 10px;
+            padding: 15px; margin-bottom: 20px; color: #0066cc; font-size: 13px;
         }
-
-        .info-box strong {
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        #output {
-            margin-top: 30px;
-            padding: 20px;
-            background: #2d3436;
-            border-radius: 10px;
-            display: none;
-        }
-
-        #output h3 {
-            color: #2ed573;
-            margin-bottom: 15px;
-        }
-
+        .info-box strong { display: block; margin-bottom: 5px; }
+        #output { margin-top: 30px; padding: 20px; background: #2d3436; border-radius: 10px; display: none; }
+        #output h3 { color: #2ed573; margin-bottom: 15px; }
         #jsonOutput {
-            width: 100%;
-            height: 300px;
-            background: #1e272e;
-            color: #2ed573;
-            border: none;
-            border-radius: 8px;
-            padding: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            resize: vertical;
+            width: 100%; height: 300px; background: #1e272e; color: #2ed573;
+            border: none; border-radius: 8px; padding: 15px;
+            font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;
         }
-
         .copy-btn {
-            background: #2ed573;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-weight: 600;
+            background: #2ed573; color: white; border: none; padding: 10px 20px;
+            border-radius: 8px; cursor: pointer; margin-top: 10px; font-weight: 600;
         }
-
-        .copy-btn:hover {
-            background: #26c966;
-        }
-
+        .copy-btn:hover { background: #26c966; }
         .stats {
-            display: flex;
-            justify-content: space-around;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            display: flex; justify-content: space-around; background: #f8f9fa;
+            padding: 15px; border-radius: 10px; margin-bottom: 20px;
         }
-
-        .stat-item {
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #888;
-        }
-
-        .options-container {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 10px;
-        }
-
-        .option-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-
-        .option-row input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .option-row input[type="text"] {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #667eea; }
+        .stat-label { font-size: 12px; color: #888; }
+        .options-container { background: white; border-radius: 10px; padding: 15px; margin-top: 10px; }
+        .option-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .option-row input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+        .option-row input[type="text"] { flex: 1; margin-bottom: 0; }
         .btn-add-option {
-            background: #a8e6cf;
-            color: #2d7a4f;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            margin-top: 10px;
+            background: #a8e6cf; color: #2d7a4f; border: none; padding: 8px 15px;
+            border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; margin-top: 10px;
         }
-
-        .btn-add-option:hover {
-            background: #88d8b8;
-        }
-
-        .type-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
+        .btn-add-option:hover { background: #88d8b8; }
+        .type-selector { display: flex; gap: 10px; margin-bottom: 15px; }
         .type-btn {
-            flex: 1;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            background: white;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
+            flex: 1; padding: 10px; border: 2px solid #e0e0e0; border-radius: 10px;
+            background: white; cursor: pointer; font-weight: 600; transition: all 0.3s;
         }
-
-        .type-btn.active {
-            border-color: #667eea;
-            background: #f0f0ff;
-            color: #667eea;
+        .type-btn.active { border-color: #667eea; background: #f0f0ff; color: #667eea; }
+        .type-btn.multiple.active { border-color: #f093fb; background: #fff0ff; color: #f093fb; }
+        .hint { font-size: 12px; color: #888; margin-top: 5px; }
+        .import-area {
+            width: 100%; height: 300px; background: #1e272e; color: #2ed573;
+            border: none; border-radius: 8px; padding: 15px;
+            font-family: 'Courier New', monospace; font-size: 12px; resize: vertical; margin-bottom: 15px;
         }
-
-        .type-btn.multiple.active {
-            border-color: #f093fb;
-            background: #fff0ff;
-            color: #f093fb;
+        .file-input-wrapper { margin-bottom: 15px; }
+        .file-input-wrapper input[type="file"] { display: none; }
+        .file-input-label {
+            display: inline-block; padding: 12px 25px; background: #667eea;
+            color: white; border-radius: 10px; cursor: pointer; font-weight: 600; transition: background 0.3s;
         }
-
-        .hint {
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
-        }
-
-        .correct-hint {
-            color: #2ed573;
-            font-weight: 600;
-        }
+        .file-input-label:hover { background: #5568d3; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📝 Конструктор тестов</h1>
-        <p class="subtitle">Создавайте тесты по русскому языку для Telegram-бота</p>
+        <p class="subtitle">Создавайте и редактируйте тесты по русскому языку</p>
 
-        <div class="info-box">
-            <strong>📋 Инструкция:</strong>
-            1. Введите название и описание теста<br>
-            2. Добавьте вопросы (одиночный или множественный выбор)<br>
-            3. Нажмите "Сгенерировать JSON"<br>
-            4. Скопируйте результат и отправьте боту командой /load_test
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('create')">➕ Создать/Редактировать</button>
+            <button class="tab-btn" onclick="switchTab('insert')">✍️ Вставка букв</button>
+            <button class="tab-btn" onclick="switchTab('import')">📥 Загрузить JSON</button>
         </div>
 
-        <div class="stats">
-            <div class="stat-item">
-                <div class="stat-value" id="questionsCount">0</div>
-                <div class="stat-label">Вопросов</div>
+        <!-- Вкладка создания/редактирования -->
+        <div id="create-tab" class="tab-content active">
+            <div class="info-box">
+                <strong>📋 Инструкция:</strong>
+                1. Введите название и описание теста<br>
+                2. Добавьте вопросы (одиночный или множественный выбор)<br>
+                3. Нажмите "Сгенерировать JSON"<br>
+                4. Скопируйте результат и отправьте боту командой /load_test
             </div>
-            <div class="stat-item">
-                <div class="stat-value" id="singleCount">0</div>
-                <div class="stat-label">Одиночных</div>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="questionsCount">0</div>
+                    <div class="stat-label">Вопросов</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="singleCount">0</div>
+                    <div class="stat-label">Одиночных</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="multipleCount">0</div>
+                    <div class="stat-label">Множественных</div>
+                </div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value" id="multipleCount">0</div>
-                <div class="stat-label">Множественных</div>
+
+            <div class="form-group">
+                <label for="testTitle">Название теста *</label>
+                <input type="text" id="testTitle" placeholder="Например: Правописание -Н- и -НН-">
+            </div>
+
+            <div class="form-group">
+                <label for="testDescription">Описание теста</label>
+                <textarea id="testDescription" placeholder="Краткое описание теста для учащихся..."></textarea>
+            </div>
+
+            <div class="questions-container" id="questionsContainer"></div>
+
+            <button class="btn btn-primary" onclick="addQuestion()">➕ Добавить вопрос</button>
+
+            <div class="buttons-row">
+                <button class="btn btn-success" onclick="generateJSON()">✅ Сгенерировать JSON</button>
+                <button class="btn btn-secondary" onclick="clearAll()">🗑️ Очистить всё</button>
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="testTitle">Название теста *</label>
-            <input type="text" id="testTitle" placeholder="Например: Правописание -Н- и -НН-">
+        <!-- Вкладка вставки букв -->
+        <div id="insert-tab" class="tab-content">
+            <div class="info-box">
+                <strong>✍️ Задание на вставку букв:</strong>
+                1. Введите текст с пропусками (обозначайте ..)<br>
+                2. Укажите правильные буквы для каждого пропуска<br>
+                3. Добавьте варианты букв для выбора<br>
+                4. Сгенерируйте JSON и загрузите в бота
+            </div>
+
+            <div class="form-group">
+                <label for="insertTitle">Название задания *</label>
+                <input type="text" id="insertTitle" placeholder="Например: Правописание -Н- и -НН-">
+            </div>
+
+            <div class="form-group">
+                <label for="insertDescription">Описание</label>
+                <textarea id="insertDescription" placeholder="Вставьте пропущенные буквы..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="insertText">Текст с пропусками *</label>
+                <textarea id="insertText" placeholder="В комнате стоял див..н, который был украше.. узором." rows="4"></textarea>
+                <p class="hint">Используйте .. для обозначения пропуска (одна .. = одна буква)</p>
+            </div>
+
+            <div id="insertGapsContainer"></div>
+
+            <div class="form-group">
+                <label>Варианты букв для выбора *</label>
+                <div id="insertLettersContainer"></div>
+                <button class="btn btn-primary btn-small" onclick="addInsertLetter()" style="margin-top: 10px;">+ Добавить букву</button>
+            </div>
+
+            <button class="btn btn-primary" onclick="addInsertTask()">➕ Добавить задание в тест</button>
+
+            <div id="insertOutput" style="display: none; margin-top: 20px;">
+                <h3>📄 JSON для вставки букв:</h3>
+                <textarea id="insertJsonOutput" style="width: 100%; height: 200px; background: #1e272e; color: #2ed573; border: none; border-radius: 8px; padding: 15px; font-family: monospace;"></textarea>
+                <button class="btn btn-success" onclick="copyInsertJson()" style="margin-top: 10px;">📋 Скопировать</button>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label for="testDescription">Описание теста</label>
-            <textarea id="testDescription" placeholder="Краткое описание теста для учащихся..."></textarea>
-        </div>
+        <!-- Вкладка импорта -->
+        <div id="import-tab" class="tab-content">
+            <div class="info-box">
+                <strong>📥 Загрузка теста:</strong>
+                1. Вставьте JSON в поле ниже или выберите файл<br>
+                2. Нажмите "Загрузить и редактировать"<br>
+                3. Отредактируйте тест и экспортируйте обратно
+            </div>
 
-        <div class="questions-container" id="questionsContainer">
-            <!-- Вопросы будут добавляться сюда -->
-        </div>
+            <div class="file-input-wrapper">
+                <label for="jsonFile" class="file-input-label">📁 Выбрать JSON файл</label>
+                <input type="file" id="jsonFile" accept=".json" onchange="loadJsonFile(event)">
+            </div>
 
-        <button class="btn btn-primary" onclick="addQuestion()">➕ Добавить вопрос</button>
+            <p style="margin: 15px 0; color: #888;">или вставьте JSON:</p>
+            <textarea id="importJson" class="import-area" placeholder='{"title": "...", "questions": [...]}'></textarea>
 
-        <div class="buttons-row">
-            <button class="btn btn-success" onclick="generateJSON()">✅ Сгенерировать JSON</button>
-            <button class="btn btn-secondary" onclick="clearAll()">🗑️ Очистить всё</button>
+            <div class="buttons-row">
+                <button class="btn btn-success" onclick="importJson()">📥 Загрузить и редактировать</button>
+                <button class="btn btn-secondary" onclick="clearImport()">🗑️ Очистить</button>
+            </div>
         </div>
 
         <div id="output">
@@ -412,13 +254,25 @@
     <script>
         let questionCounter = 0;
 
-        function addQuestion() {
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`${tab}-tab`).classList.add('active');
+        }
+
+        function addQuestion(data = null) {
             questionCounter++;
             const container = document.getElementById('questionsContainer');
-            
             const questionCard = document.createElement('div');
             questionCard.className = 'question-card';
             questionCard.id = `question-${questionCounter}`;
+            
+            const qType = data?.type || 'single';
+            const qText = data?.text || '';
+            const qAnswer = data?.answer || '';
+            const qOptions = data?.options || [];
+
             questionCard.innerHTML = `
                 <div class="question-header">
                     <div>
@@ -428,51 +282,55 @@
                 </div>
                 
                 <div class="type-selector">
-                    <button class="type-btn active" onclick="setQuestionType(${questionCounter}, 'single')">
-                        📝 Одиночный ответ
-                    </button>
-                    <button class="type-btn multiple" onclick="setQuestionType(${questionCounter}, 'multiple')">
-                        ☑️ Множественный выбор
-                    </button>
+                    <button class="type-btn ${qType === 'single' ? 'active' : ''}" onclick="setQuestionType(${questionCounter}, 'single')">📝 Одиночный ответ</button>
+                    <button class="type-btn multiple ${qType === 'multiple' ? 'active' : ''}" onclick="setQuestionType(${questionCounter}, 'multiple')">☑️ Множественный выбор</button>
                 </div>
                 
                 <div class="form-group">
                     <label>Текст вопроса *</label>
-                    <textarea class="question-text" placeholder="Введите текст вопроса..."></textarea>
+                    <textarea class="question-text" placeholder="Введите текст вопроса...">${qText}</textarea>
                 </div>
                 
-                <div class="single-answer-section">
+                <div class="single-answer-section" style="display: ${qType === 'single' ? 'block' : 'none'};">
                     <div class="form-group">
                         <label>Правильный ответ *</label>
-                        <input type="text" class="question-answer" placeholder="Введите правильный ответ...">
+                        <input type="text" class="question-answer" placeholder="Введите правильный ответ..." value="${qAnswer}">
                         <p class="hint">Ответ будет проверяться без учёта регистра</p>
                     </div>
                 </div>
                 
-                <div class="multiple-answer-section" style="display: none;">
+                <div class="multiple-answer-section" style="display: ${qType === 'multiple' ? 'block' : 'none'};">
                     <label>Варианты ответов *</label>
                     <p class="hint">Отметьте галочками <span class="correct-hint">правильные ответы</span></p>
                     <div class="options-container" id="options-${questionCounter}">
-                        <div class="option-row">
-                            <input type="checkbox" class="option-correct">
-                            <input type="text" class="option-text" placeholder="Вариант 1">
-                            <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
-                        </div>
-                        <div class="option-row">
-                            <input type="checkbox" class="option-correct">
-                            <input type="text" class="option-text" placeholder="Вариант 2">
-                            <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
-                        </div>
-                        <div class="option-row">
-                            <input type="checkbox" class="option-correct">
-                            <input type="text" class="option-text" placeholder="Вариант 3">
-                            <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
-                        </div>
-                        <div class="option-row">
-                            <input type="checkbox" class="option-correct">
-                            <input type="text" class="option-text" placeholder="Вариант 4">
-                            <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
-                        </div>
+                        ${qOptions.length > 0 ? qOptions.map((opt, i) => `
+                            <div class="option-row">
+                                <input type="checkbox" class="option-correct" ${data.answer?.includes(opt) ? 'checked' : ''}>
+                                <input type="text" class="option-text" placeholder="Вариант ${i+1}" value="${opt}">
+                                <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
+                            </div>
+                        `).join('') : `
+                            <div class="option-row">
+                                <input type="checkbox" class="option-correct">
+                                <input type="text" class="option-text" placeholder="Вариант 1">
+                                <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
+                            </div>
+                            <div class="option-row">
+                                <input type="checkbox" class="option-correct">
+                                <input type="text" class="option-text" placeholder="Вариант 2">
+                                <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
+                            </div>
+                            <div class="option-row">
+                                <input type="checkbox" class="option-correct">
+                                <input type="text" class="option-text" placeholder="Вариант 3">
+                                <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
+                            </div>
+                            <div class="option-row">
+                                <input type="checkbox" class="option-correct">
+                                <input type="text" class="option-text" placeholder="Вариант 4">
+                                <button class="btn-remove btn-small" onclick="removeOption(this)">✕</button>
+                            </div>
+                        `}
                     </div>
                     <button class="btn-add-option" onclick="addOption(${questionCounter})">+ Добавить вариант</button>
                     <p class="hint" style="color: #f093fb;">Минимум один правильный ответ должен быть отмечен!</p>
@@ -507,7 +365,6 @@
         function addOption(questionId) {
             const container = document.getElementById(`options-${questionId}`);
             const optionCount = container.querySelectorAll('.option-row').length + 1;
-            
             const optionRow = document.createElement('div');
             optionRow.className = 'option-row';
             optionRow.innerHTML = `
@@ -524,7 +381,7 @@
             if (container.querySelectorAll('.option-row').length > 2) {
                 row.remove();
             } else {
-                alert('Минимум 2 варианта ответа required!');
+                alert('Минимум 2 варианта ответа!');
             }
         }
 
@@ -540,15 +397,10 @@
             const questions = document.querySelectorAll('.question-card');
             document.getElementById('questionsCount').textContent = questions.length;
             
-            let singleCount = 0;
-            let multipleCount = 0;
-            
+            let singleCount = 0, multipleCount = 0;
             questions.forEach(card => {
-                if (card.classList.contains('multiple-choice')) {
-                    multipleCount++;
-                } else {
-                    singleCount++;
-                }
+                if (card.classList.contains('multiple-choice')) multipleCount++;
+                else singleCount++;
             });
             
             document.getElementById('singleCount').textContent = singleCount;
@@ -578,20 +430,18 @@
                     const options = [];
                     const correctAnswers = [];
                     
-                    card.querySelectorAll('.option-row').forEach((row, index) => {
+                    card.querySelectorAll('.option-row').forEach((row) => {
                         const optionText = row.querySelector('.option-text').value.trim();
                         const isCorrect = row.querySelector('.option-correct').checked;
                         
                         if (optionText) {
                             options.push(optionText);
-                            if (isCorrect) {
-                                correctAnswers.push(optionText);
-                            }
+                            if (isCorrect) correctAnswers.push(optionText);
                         }
                     });
                     
                     if (options.length < 2) {
-                        alert('⚠️ Минимум 2 варианта ответа required!');
+                        alert('⚠️ Минимум 2 варианта ответа!');
                         throw new Error('Not enough options');
                     }
                     
@@ -600,25 +450,14 @@
                         throw new Error('No correct answers');
                     }
                     
-                    questions.push({
-                        type: 'multiple',
-                        text: text,
-                        options: options,
-                        answer: correctAnswers
-                    });
+                    questions.push({ type: 'multiple', text, options, answer: correctAnswers });
                 } else {
                     const answer = card.querySelector('.question-answer').value.trim();
-                    
                     if (!answer) {
                         alert('⚠️ Все вопросы должны иметь правильный ответ!');
                         throw new Error('Empty answer');
                     }
-                    
-                    questions.push({
-                        type: 'single',
-                        text: text,
-                        answer: answer
-                    });
+                    questions.push({ type: 'single', text, answer });
                 }
             });
 
@@ -627,13 +466,7 @@
                 return;
             }
 
-            const testData = {
-                title: title,
-                description: description || "Без описания",
-                active: true,
-                questions: questions
-            };
-
+            const testData = { title, description: description || "Без описания", questions };
             const json = JSON.stringify(testData, null, 2);
             document.getElementById('jsonOutput').value = json;
             document.getElementById('output').style.display = 'block';
@@ -644,12 +477,9 @@
             const output = document.getElementById('jsonOutput');
             output.select();
             document.execCommand('copy');
-            
             const btn = document.querySelector('.copy-btn');
             btn.textContent = '✅ Скопировано!';
-            setTimeout(() => {
-                btn.textContent = '📋 Скопировать JSON';
-            }, 2000);
+            setTimeout(() => btn.textContent = '📋 Скопировать JSON', 2000);
         }
 
         function clearAll() {
@@ -663,8 +493,192 @@
             }
         }
 
+        // Import functions
+        function loadJsonFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('importJson').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        function importJson() {
+            const jsonText = document.getElementById('importJson').value.trim();
+            if (!jsonText) {
+                alert('⚠️ Вставьте JSON или выберите файл!');
+                return;
+            }
+            
+            try {
+                const data = JSON.parse(jsonText);
+                
+                if (!data.title) {
+                    alert('❌ Неверный формат: отсутствует поле "title"');
+                    return;
+                }
+                
+                if (!data.questions || !Array.isArray(data.questions)) {
+                    alert('❌ Неверный формат: отсутствует или неверно поле "questions"');
+                    return;
+                }
+                
+                // Загружаем данные в форму
+                document.getElementById('testTitle').value = data.title;
+                document.getElementById('testDescription').value = data.description || '';
+                document.getElementById('questionsContainer').innerHTML = '';
+                questionCounter = 0;
+                
+                // Добавляем вопросы
+                data.questions.forEach(q => addQuestion(q));
+                
+                // Переключаемся на вкладку редактирования
+                switchTab('create');
+                
+                alert(`✅ Тест загружен! ${data.questions.length} вопросов готово к редактированию.`);
+            } catch (e) {
+                alert('❌ Ошибка parsing JSON: ' + e.message);
+            }
+        }
+
+        function clearImport() {
+            document.getElementById('importJson').value = '';
+            document.getElementById('jsonFile').value = '';
+        }
+
         // Добавим первый вопрос при загрузке
         addQuestion();
+        
+        // Инициализация вставки букв
+        let insertGapCount = 0;
+        let insertLetterCount = 0;
+        
+        // Анализ текста с пропусками
+        document.getElementById('insertText').addEventListener('input', function() {
+            analyzeInsertText(this.value);
+        });
+        
+        function analyzeInsertText(text) {
+            const container = document.getElementById('insertGapsContainer');
+            container.innerHTML = '';
+            
+            // Находим все пропуски ..
+            const gapRegex = /\.\./g;
+            const gaps = text.match(gapRegex);
+            
+            if (gaps) {
+                container.innerHTML = '<label style="margin-top: 15px;">Правильные ответы для каждого пропуска:</label>';
+                
+                gaps.forEach((_, i) => {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'margin: 10px 0; display: flex; gap: 10px; align-items: center;';
+                    div.innerHTML = `
+                        <span style="font-weight: 600;">Пропуск ${i + 1}:</span>
+                        <input type="text" class="gap-answer" data-gap="${i}" 
+                               placeholder="Буква" maxlength="2" 
+                               style="width: 60px; padding: 8px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        }
+        
+        function addInsertLetter() {
+            insertLetterCount++;
+            const container = document.getElementById('insertLettersContainer');
+            const div = document.createElement('div');
+            div.style.cssText = 'margin: 10px 0; display: flex; gap: 10px; align-items: center;';
+            div.innerHTML = `
+                <input type="text" class="insert-letter" placeholder="Буква" maxlength="2" 
+                       style="width: 60px; padding: 8px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                <button class="btn-remove btn-small" onclick="this.parentElement.remove()">✕</button>
+            `;
+            container.appendChild(div);
+        }
+        
+        // Добавим несколько букв по умолчанию
+        for (let i = 0; i < 5; i++) {
+            addInsertLetter();
+        }
+        
+        function addInsertTask() {
+            const title = document.getElementById('insertTitle').value.trim();
+            const description = document.getElementById('insertDescription').value.trim();
+            const text = document.getElementById('insertText').value.trim();
+            
+            if (!title || !text) {
+                alert('⚠️ Введите название и текст с пропусками!');
+                return;
+            }
+            
+            // Собираем правильные ответы
+            const gapAnswers = [];
+            document.querySelectorAll('.gap-answer').forEach(input => {
+                if (input.value.trim()) {
+                    gapAnswers.push(input.value.trim());
+                }
+            });
+            
+            // Собираем варианты букв
+            const letters = [];
+            document.querySelectorAll('.insert-letter').forEach(input => {
+                if (input.value.trim()) {
+                    letters.push(input.value.trim());
+                }
+            });
+            
+            if (gapAnswers.length === 0) {
+                alert('⚠️ Укажите правильные буквы для всех пропусков!');
+                return;
+            }
+            
+            if (letters.length < 2) {
+                alert('⚠️ Добавьте минимум 2 варианта букв!');
+                return;
+            }
+            
+            // Находим позиции пропусков
+            const gaps = [];
+            const gapRegex = /\.\./g;
+            let match;
+            let gapIndex = 0;
+            
+            while ((match = gapRegex.exec(text)) !== null) {
+                gaps.push({
+                    index: match.index,
+                    correct: gapAnswers[gapIndex] || 'а',
+                    length: 1
+                });
+                gapIndex++;
+            }
+            
+            // Заменяем .. на пустые места для отображения
+            const displayText = text.replace(/\.\./g, '___');
+            
+            // Создаём JSON
+            const insertTask = {
+                type: 'insert_letter',
+                description: description || 'Вставьте пропущенные буквы',
+                text: displayText,
+                gaps: gaps,
+                letters: letters
+            };
+            
+            const json = JSON.stringify(insertTask, null, 2);
+            document.getElementById('insertJsonOutput').value = json;
+            document.getElementById('insertOutput').style.display = 'block';
+            
+            alert('✅ JSON сгенерирован! Скопируйте и добавьте в тест через /load_test');
+        }
+        
+        function copyInsertJson() {
+            const output = document.getElementById('insertJsonOutput');
+            output.select();
+            document.execCommand('copy');
+            alert('✅ Скопировано в буфер обмена!');
+        }
     </script>
 </body>
 </html>

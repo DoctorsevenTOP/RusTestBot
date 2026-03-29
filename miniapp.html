@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Вставка букв - Русский язык</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: var(--tg-theme-hint-color, #666);
+        }
+
+        .task-info {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .task-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .task-description {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+
+        .question-container {
+            margin-bottom: 25px;
+        }
+
+        .question-number {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #888);
+            margin-bottom: 8px;
+        }
+
+        .question-text {
+            font-size: 18px;
+            line-height: 2;
+            margin-bottom: 15px;
+        }
+
+        .letter-gap {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--tg-theme-button-color, #667eea);
+            border-radius: 8px;
+            text-align: center;
+            line-height: 36px;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0 3px;
+            cursor: pointer;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            transition: all 0.3s;
+            vertical-align: middle;
+        }
+
+        .letter-gap.filled {
+            background: var(--tg-theme-button-color, #667eea);
+            color: white;
+        }
+
+        .letter-gap.active {
+            border-color: var(--tg-theme-button-color, #667eea);
+            box-shadow: 0 0 10px var(--tg-theme-button-color, #667eea);
+            transform: scale(1.1);
+        }
+
+        .letter-gap.correct {
+            background: #2ed573;
+            border-color: #2ed573;
+            color: white;
+        }
+
+        .letter-gap.wrong {
+            background: #ff4757;
+            border-color: #ff4757;
+            color: white;
+        }
+
+        .letters-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding: 15px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .letter-btn {
+            width: 45px;
+            height: 45px;
+            border: none;
+            border-radius: 12px;
+            background: var(--tg-theme-button-color, #667eea);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .letter-btn:active {
+            transform: scale(0.9);
+            opacity: 0.8;
+        }
+
+        .letter-btn.used {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 3px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+        }
+
+        .result-screen {
+            text-align: center;
+            padding: 30px 20px;
+            display: none;
+        }
+
+        .result-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .result-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .result-score {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--tg-theme-button-color, #667eea);
+            margin: 20px 0;
+        }
+
+        .result-details {
+            font-size: 16px;
+            color: var(--tg-theme-hint-color, #888);
+            margin-bottom: 30px;
+        }
+
+        .main-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .main-btn:active {
+            transform: scale(0.98);
+        }
+
+        .main-btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .hint {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #888);
+            text-align: center;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="gameScreen">
+            <h1>✍️ Вставьте буквы</h1>
+            
+            <div class="task-info">
+                <div class="task-title" id="taskTitle">Название задания</div>
+                <div class="task-description" id="taskDescription">Описание</div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+            </div>
+
+            <div id="questionsContainer"></div>
+
+            <div class="letters-panel" id="lettersPanel"></div>
+
+            <button class="main-btn" id="submitBtn" onclick="submitAnswers()">
+                ✅ Проверить ответы
+            </button>
+
+            <p class="hint">Нажмите на пропуск, затем выберите букву из панели</p>
+        </div>
+
+        <div id="resultScreen" class="result-screen">
+            <div class="result-icon" id="resultIcon">🎉</div>
+            <div class="result-title" id="resultTitle">Отлично!</div>
+            <div class="result-score" id="resultScore">8/10</div>
+            <div class="result-details" id="resultDetails">80% правильных ответов</div>
+            <button class="main-btn" onclick="sendResults()">
+                📤 Отправить результат
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Данные задания (передаются через URL параметры или из Telegram)
+        let taskData = null;
+        let currentGapIndex = null;
+        let userAnswers = {};
+        let gaps = [];
+
+        // Парсим данные из URL
+        function parseTaskData() {
+            const params = new URLSearchParams(window.location.search);
+            const dataParam = params.get('data');
+            
+            if (dataParam) {
+                try {
+                    taskData = JSON.parse(decodeURIComponent(dataParam));
+                } catch (e) {
+                    taskData = getDefaultTask();
+                }
+            } else {
+                taskData = getDefaultTask();
+            }
+        }
+
+        function getDefaultTask() {
+            return {
+                test_id: "1",
+                task_id: "insert_1",
+                title: "Правописание -Н- и -НН-",
+                description: "Вставьте пропущенные буквы в слова",
+                questions: [
+                    {
+                        text: "В комнате стоял див..н, который был украше.. узором.",
+                        gaps: [
+                            { index: 22, correct: "а" },
+                            { index: 44, correct: "н" }
+                        ],
+                        letters: ["а", "о", "н", "нн", "е"]
+                    }
+                ]
+            };
+        }
+
+        function init() {
+            parseTaskData();
+            document.getElementById('taskTitle').textContent = taskData.title;
+            document.getElementById('taskDescription').textContent = taskData.description;
+            
+            renderQuestions();
+            renderLettersPanel();
+            updateProgress();
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+
+            taskData.questions.forEach((q, qIndex) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question-container';
+                
+                const numberDiv = document.createElement('div');
+                numberDiv.className = 'question-number';
+                numberDiv.textContent = `Вопрос ${qIndex + 1} из ${taskData.questions.length}`;
+                questionDiv.appendChild(numberDiv);
+
+                const textDiv = document.createElement('div');
+                textDiv.className = 'question-text';
+                
+                // Разбиваем текст на части с пропусками
+                let lastIndex = 0;
+                let gapCounter = 0;
+                
+                q.gaps.forEach((gap, gapIndex) => {
+                    // Текст до пропуска
+                    if (gap.index > lastIndex) {
+                        textDiv.appendChild(document.createTextNode(
+                            q.text.substring(lastIndex, gap.index)
+                        ));
+                    }
+                    
+                    // Пропуск
+                    const gapSpan = document.createElement('span');
+                    gapSpan.className = 'letter-gap';
+                    gapSpan.dataset.question = qIndex;
+                    gapSpan.dataset.gap = gapIndex;
+                    gapSpan.textContent = '_';
+                    gapSpan.onclick = () => selectGap(gapSpan, qIndex, gapIndex);
+                    textDiv.appendChild(gapSpan);
+                    
+                    gaps.push({
+                        question: qIndex,
+                        gap: gapIndex,
+                        correct: gap.correct,
+                        element: gapSpan
+                    });
+                    
+                    lastIndex = gap.index + (gap.length || 1);
+                    gapCounter++;
+                });
+                
+                // Оставшийся текст
+                if (lastIndex < q.text.length) {
+                    textDiv.appendChild(document.createTextNode(
+                        q.text.substring(lastIndex)
+                    ));
+                }
+                
+                questionDiv.appendChild(textDiv);
+                container.appendChild(questionDiv);
+            });
+        }
+
+        function renderLettersPanel() {
+            const panel = document.getElementById('lettersPanel');
+            panel.innerHTML = '';
+            
+            // Собираем все уникальные буквы
+            const allLetters = new Set();
+            taskData.questions.forEach(q => {
+                q.letters.forEach(l => allLetters.add(l));
+            });
+            
+            Array.from(allLetters).sort().forEach(letter => {
+                const btn = document.createElement('button');
+                btn.className = 'letter-btn';
+                btn.textContent = letter;
+                btn.onclick = () => selectLetter(letter, btn);
+                panel.appendChild(btn);
+            });
+        }
+
+        function selectGap(element, qIndex, gapIndex) {
+            // Снимаем выделение с предыдущего
+            document.querySelectorAll('.letter-gap.active').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Выделяем новый
+            element.classList.add('active');
+            currentGapIndex = { question: qIndex, gap: gapIndex, element };
+        }
+
+        function selectLetter(letter, btnElement) {
+            if (!currentGapIndex) {
+                // Анимия ошибки - трясём панель
+                btnElement.style.animation = 'shake 0.3s';
+                setTimeout(() => btnElement.style.animation = '', 300);
+                return;
+            }
+            
+            const { element } = currentGapIndex;
+            element.textContent = letter;
+            element.classList.add('filled');
+            
+            // Сохраняем ответ
+            const key = `${currentGapIndex.question}-${currentGapIndex.gap}`;
+            userAnswers[key] = letter;
+            
+            // Помечаем букву как использованную (опционально)
+            // btnElement.classList.add('used');
+            
+            // Снимаем выделение
+            element.classList.remove('active');
+            currentGapIndex = null;
+            
+            // Обновляем прогресс
+            updateProgress();
+            
+            // Тактильная отдача
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        function updateProgress() {
+            const filledCount = Object.keys(userAnswers).length;
+            const totalGaps = gaps.length;
+            const progress = (filledCount / totalGaps) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            
+            // Блокируем кнопку если не все заполнено
+            document.getElementById('submitBtn').disabled = filledCount < totalGaps;
+        }
+
+        function submitAnswers() {
+            let correct = 0;
+            let total = gaps.length;
+            
+            // Проверяем ответы
+            gaps.forEach((gap, index) => {
+                const key = `${gap.question}-${gap.gap}`;
+                const userAnswer = userAnswers[key];
+                
+                if (userAnswer === gap.correct) {
+                    gap.element.classList.add('correct');
+                    correct++;
+                } else {
+                    gap.element.classList.add('wrong');
+                    // Показываем правильный ответ
+                    setTimeout(() => {
+                        gap.element.textContent = gap.correct;
+                    }, 500);
+                }
+            });
+            
+            // Тактильная отдача
+            tg.HapticFeedback.notificationOccurred(correct === total ? 'success' : 'error');
+            
+            // Показываем результат
+            showResult(correct, total);
+        }
+
+        function showResult(correct, total) {
+            const percentage = Math.round((correct / total) * 100);
+            
+            document.getElementById('gameScreen').style.display = 'none';
+            document.getElementById('resultScreen').style.display = 'block';
+            
+            const icon = document.getElementById('resultIcon');
+            const title = document.getElementById('resultTitle');
+            
+            if (percentage >= 80) {
+                icon.textContent = '🏆';
+                title.textContent = 'Отлично!';
+            } else if (percentage >= 60) {
+                icon.textContent = '👍';
+                title.textContent = 'Хорошо!';
+            } else if (percentage >= 40) {
+                icon.textContent = '📚';
+                title.textContent = 'Можно лучше';
+            } else {
+                icon.textContent = '💪';
+                title.textContent = 'Попробуйте ещё';
+            }
+            
+            document.getElementById('resultScore').textContent = `${correct}/${total}`;
+            document.getElementById('resultDetails').textContent = `${percentage}% правильных ответов`;
+            
+            // Сохраняем результат для отправки
+            window.finalResult = {
+                correct,
+                total,
+                percentage,
+                answers: userAnswers
+            };
+        }
+
+        function sendResults() {
+            if (!window.finalResult) return;
+            
+            const resultData = {
+                user_id: tg.initDataUnsafe?.user?.id,
+                test_id: taskData.test_id,
+                task_id: taskData.task_id,
+                score: window.finalResult.correct,
+                total: window.finalResult.total,
+                percentage: window.finalResult.percentage,
+                answers: window.finalResult.answers
+            };
+            
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify(resultData));
+            
+            // Или закрываем с результатом
+            tg.close();
+        }
+
+        // Инициализация
+        init();
+    </script>
+</body>
+</html>

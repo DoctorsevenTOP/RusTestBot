@@ -62,6 +62,9 @@ dp = Dispatcher()
 router = Router()
 dp.include_router(router)
 
+# Хранилище для данных Mini App
+mini_app_results = {}
+
 
 # === Состояния для FSM ===
 class WaitForName(StatesGroup):
@@ -139,7 +142,8 @@ async def cmd_help(message: Message):
     text += "/help - Эта справка\n"
     text += "/ping - Проверка работоспособности\n"
     text += "/me - Мой профиль и статус\n"
-    text += "/admin - Стать администратором (по коду)\n"
+    text += "/admin - Стать администратором (код: 6418237)\n"
+    text += "/insert - Задания на вставку букв (Mini App)\n"
     text += "📋 Список тестов - Пройти тест\n"
     text += "🏆 Таблица лидеров - Лучшие результаты\n"
     text += "📊 Мои результаты - История прохождений\n\n"
@@ -147,10 +151,10 @@ async def cmd_help(message: Message):
     if is_admin_user:
         text += "<b>🔧 Для администраторов:</b>\n"
         text += "➕ Создать тест - Интерактивное создание\n"
+        text += "/edit_test - Редактор тестов (Mini App)\n"
         text += "/load_test - Загрузка теста из JSON\n"
         text += "/toggle_test - Вкл/выкл тесты\n"
-        text += "/toggle_test <code>&lt;ID&gt;</code> - Переключить статус теста\n"
-        text += "/set_admin <code>&lt;ID&gt; &lt;0|1&gt;</code> - Права администратора\n"
+        text += "/delete_test - Удалить тест\n"
         text += "/admins - Список администраторов\n"
         text += "/cancel - Отмена действия\n\n"
 
@@ -217,6 +221,223 @@ async def cmd_me(message: Message):
         text = "❌ Вы ещё не зарегистрированы.\nНажмите /start для начала работы."
 
     await message.answer(text, parse_mode="HTML")
+
+
+# === Mini App - Задания на вставку букв ===
+@router.message(Command("insert"))
+async def cmd_insert_app(message: Message):
+    """Запустить Mini App с заданием на вставку букв"""
+    user = data_manager.get_user(message.from_user.id)
+    
+    if not user:
+        await message.answer("❌ Сначала зарегистрируйтесь через /start")
+        return
+    
+    # Получаем тесты с вопросами типа insert_letter
+    tests = data_manager.get_tests(only_active=True)
+    
+    insert_tests = []
+    for test_id, test in tests.items():
+        for q in test.get("questions", []):
+            if q.get("type") == "insert_letter":
+                insert_tests.append({
+                    "test_id": test_id,
+                    "title": test["title"],
+                    "question": q
+                })
+    
+    if not insert_tests:
+        await message.answer(
+            "❌ Пока нет доступных заданий на вставку букв.\n\n"
+            "Администраторы могут создать их через /load_test"
+        )
+        return
+    
+    # Создаём клавиатуру с доступными заданиями
+    buttons = []
+    for i, task in enumerate(insert_tests[:10]):  # Максимум 10
+        buttons.append([InlineKeyboardButton(
+            text=f"📝 {task['title']}",
+            callback_data=f"insert_app_{task['test_id']}_{i}"
+        )])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    await message.answer(
+        "📱 <b>Выберите задание</b>\n\n"
+        "Вам нужно будет вставлять пропущенные буквы в слова.\n"
+        "Нажмите на пропуск, затем выберите правильную букву.",
+        reply_markup=keyboard
+    )
+
+
+# === Редактор тестов (Mini App) ===
+@router.message(Command("edit_test"))
+async def cmd_edit_test(message: Message):
+    """Запустить редактор тестов"""
+    if not data_manager.is_admin(message.from_user.id):
+        await message.answer("❌ Эта команда доступна только администраторам.")
+        return
+    
+    # URL редактора (замените на ваш хостинг)
+    editor_url = "https://your-domain.com/editor.html"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📝 Открыть редактор", web_app={"url": editor_url})]
+    ])
+    
+    await message.answer(
+        "🛠️ <b>Редактор тестов</b>\n\n"
+        "Выберите тест из списка или создайте новый.\n"
+        "Добавляйте вопросы разных типов и отправляйте в бота.",
+        reply_markup=keyboard
+    )
+
+
+@router.message(F.web_app_data)
+async def handle_editor_result(message: Message):
+    """Обработка данных из редактора"""
+    if not data_manager.is_admin(message.from_user.id):
+        return
+    
+    try:
+        import json
+        data = json.loads(message.web_app_data.data)
+        
+        action = data.get("action")
+        
+        if action == "get_tests":
+            # Отправляем список тестов
+            tests = data_manager.get_tests()
+            tests_list = [
+                {
+                    "test_id": tid,
+                    "title": t["title"],
+                    "active": t.get("active", True),
+                    "questions": t.get("questions", [])
+                }
+                for tid, t in tests.items()
+            ]
+            
+            # Отправляем обратно в Mini App через notify
+            # (нужно реализовать через bot.answer_web_app_query или notify)
+            await message.answer("📋 Список тестов отправлен в редактор")
+            
+        elif action == "create_test":
+            # Создаём новый тест
+            test_id = data_manager.generate_test_id()
+            test_data = {
+                "title": data["title"],
+                "description": data.get("description", ""),
+                "active": data.get("active", True),
+                "questions": data["questions"],
+                "created_by": message.from_user.id,
+                "created_at": data_manager.get_now_msk()
+            }
+            
+            data_manager.save_test(test_id, test_data)
+            
+            await message.answer(
+                f"✅ <b>Тест создан!</b>\n\n"
+                f"ID: <code>{test_id}</code>\n"
+                f"Название: {data['title']}\n"
+                f"Вопросов: {len(data['questions'])}\n\n"
+                f"Теперь пользователи могут проходить этот тест."
+            )
+            
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
+
+
+@router.callback_query(F.data.startswith("insert_app_"))
+async def launch_insert_app(callback: CallbackQuery):
+    """Запуск Mini App с заданием"""
+    parts = callback.data.replace("insert_app_", "").split("_")
+    test_id = parts[0]
+    question_idx = int(parts[1]) if len(parts) > 1 else 0
+    
+    test = data_manager.get_test(test_id)
+    if not test:
+        await callback.answer("Тест не найден", show_alert=True)
+        return
+    
+    # Находим вопросы типа insert_letter
+    insert_questions = [q for q in test.get("questions", []) if q.get("type") == "insert_letter"]
+    
+    if not insert_questions or question_idx >= len(insert_questions):
+        await callback.answer("Вопрос не найден", show_alert=True)
+        return
+    
+    question = insert_questions[question_idx]
+    
+    # Формируем данные для Mini App
+    app_data = {
+        "test_id": test_id,
+        "task_id": f"insert_{test_id}_{question_idx}",
+        "title": test["title"],
+        "description": question.get("description", "Вставьте пропущенные буквы"),
+        "questions": [{
+            "text": question["text"],
+            "gaps": question["gaps"],
+            "letters": question["letters"]
+        }]
+    }
+    
+    # Создаём URL для Mini App
+    import json
+    from urllib.parse import quote
+    
+    # В реальном проекте замените на ваш URL хостинга
+    app_url = f"https://your-domain.com/miniapp.html?data={quote(json.dumps(app_data))}"
+    
+    # Для локального тестирования можно использовать GitHub Pages или аналогичный хостинг
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Запустить", web_app={"url": app_url})]
+    ])
+    
+    await callback.message.answer(
+        f"📝 <b>{test['title']}</b>\n\n"
+        f"Нажмите кнопку ниже чтобы начать:",
+        reply_markup=keyboard
+    )
+    await callback.answer()
+
+
+@router.message(F.web_app_data)
+async def handle_miniapp_result(message: Message):
+    """Обработка результатов из Mini App"""
+    try:
+        import json
+        result = json.loads(message.web_app_data.data)
+        
+        user_id = message.from_user.id
+        test_id = result.get("test_id")
+        score = result.get("score", 0)
+        total = result.get("total", 0)
+        percentage = result.get("percentage", 0)
+        
+        # Сохраняем результат
+        data_manager.save_result(user_id, test_id, score, total, [{
+            "type": "insert_letter",
+            "score": score,
+            "total": total,
+            "answers": result.get("answers", {})
+        }])
+        
+        # Показываем результат
+        emoji = "🏆" if percentage >= 80 else "👍" if percentage >= 60 else "📚"
+        
+        await message.answer(
+            f"{emoji} <b>Результат сохранён!</b>\n\n"
+            f"<b>{test_id}</b>\n"
+            f"Правильно: {score} из {total}\n"
+            f"Процент: {percentage}%\n\n"
+            f"Результат добавлен в таблицу лидеров! 🏆"
+        )
+        
+    except Exception as e:
+        await message.answer(f"❌ Ошибка обработки результата: {e}")
 
 
 # === Команда /admin - стать администратором ===
@@ -872,47 +1093,62 @@ async def cmd_toggle_test(message: Message):
         await message.answer("Эта команда доступна только администраторам.")
         return
 
+    args = message.text.split()
+    
+    # Если указан ID теста
+    if len(args) > 1:
+        test_id = args[1].strip()
+        await toggle_test_by_id(message, test_id)
+        return
+    
+    # Показываем список тестов с кнопками
     tests = data_manager.get_tests()
     if not tests:
         await message.answer("Нет тестов для управления.")
         return
 
-    # Показываем список тестов с их статусом
     text = "<b>📊 Управление тестами</b>\n\n"
-    text += "Отправьте <code>/toggle_test &lt;ID&gt;</code> для переключения статуса\n\n"
+    text += "Нажмите на кнопку для переключения статуса:\n\n"
     
+    buttons = []
     for test_id, test in tests.items():
-        status = "🟢 Активен" if test.get("active", True) else "🔴 Отключён"
-        text += f"<b>{test_id}</b>. {test['title']} — {status}\n"
+        status = "🟢" if test.get("active", True) else "🔴"
+        buttons.append([InlineKeyboardButton(
+            text=f"{status} {test['title']}",
+            callback_data=f"toggle_{test_id}"
+        )])
     
-    text += "\n<i>Пример: /toggle_test 1</i>"
-    await message.answer(text)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    text += "<i>Или используйте команду: /toggle_test &lt;ID&gt;</i>"
+    await message.answer(text, reply_markup=keyboard)
 
 
-@router.message(F.text.startswith("/toggle_test "))
-async def process_toggle_test(message: Message):
-    """Обработка команды переключения теста"""
-    if not data_manager.is_admin(message.from_user.id):
+@router.callback_query(F.data.startswith("toggle_"))
+async def callback_toggle_test(callback: CallbackQuery):
+    """Переключение статуса теста через callback"""
+    if not data_manager.is_admin(callback.from_user.id):
+        await callback.answer("Доступно только администраторам", show_alert=True)
         return
+    
+    test_id = callback.data.replace("toggle_", "")
+    await toggle_test_by_id(callback.message, test_id)
+    await callback.answer()
 
+
+async def toggle_test_by_id(message: Message, test_id: str):
+    """Переключить статус теста по ID"""
     try:
-        test_id = message.text.replace("/toggle_test ", "").strip()
-        
-        if not test_id:
-            await message.answer("❌ Укажите ID теста. Пример: <code>/toggle_test 1</code>")
-            return
-        
         test = data_manager.get_test(test_id)
         if not test:
             await message.answer(f"❌ Тест с ID <code>{test_id}</code> не найден.")
             return
-        
+
         new_status = data_manager.toggle_test_active(test_id)
-        
+
         if new_status is None:
             await message.answer("❌ Ошибка при переключении статуса.")
             return
-        
+
         status_text = "🟢 <b>Активен</b>" if new_status else "🔴 <b>Отключён</b>"
         await message.answer(
             f"✅ Статус теста изменён!\n\n"
@@ -921,6 +1157,100 @@ async def process_toggle_test(message: Message):
         )
     except Exception as e:
         await message.answer(f"❌ Ошибка: {e}")
+
+
+# === Удаление теста (для администраторов) ===
+@router.message(Command("delete_test"))
+async def cmd_delete_test(message: Message):
+    """Удалить тест"""
+    if not data_manager.is_admin(message.from_user.id):
+        await message.answer("Эта команда доступна только администраторам.")
+        return
+
+    args = message.text.split()
+    
+    # Если указан ID теста
+    if len(args) > 1:
+        test_id = args[1].strip()
+        await delete_test_by_id(message, test_id)
+        return
+    
+    # Показываем список тестов с кнопками
+    tests = data_manager.get_tests()
+    if not tests:
+        await message.answer("Нет тестов для удаления.")
+        return
+
+    text = "<b>🗑️ Удаление тестов</b>\n\n"
+    text += "Нажмите на кнопку для удаления теста:\n\n"
+    
+    buttons = []
+    for test_id, test in tests.items():
+        buttons.append([InlineKeyboardButton(
+            text=f"❌ {test['title']}",
+            callback_data=f"delete_{test_id}"
+        )])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    text += "<i>Или используйте команду: /delete_test &lt;ID&gt;</i>"
+    await message.answer(text, reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("delete_"))
+async def callback_delete_test(callback: CallbackQuery):
+    """Удаление теста через callback"""
+    if not data_manager.is_admin(callback.from_user.id):
+        await callback.answer("Доступно только администраторам", show_alert=True)
+        return
+    
+    test_id = callback.data.replace("delete_", "")
+    
+    # Показываем подтверждение
+    test = data_manager.get_test(test_id)
+    if not test:
+        await callback.answer("Тест не найден", show_alert=True)
+        return
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"confirm_delete_{test_id}")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_delete")]
+    ])
+    
+    await callback.message.answer(
+        f"⚠️ <b>Подтверждение удаления</b>\n\n"
+        f"Вы уверены что хотите удалить тест:\n"
+        f"<b>{test['title']}</b> (ID: {test_id})\n\n"
+        f"Это действие нельзя отменить!",
+        reply_markup=keyboard
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("confirm_delete_"))
+async def confirm_delete_test(callback: CallbackQuery):
+    """Подтверждение удаления теста"""
+    if not data_manager.is_admin(callback.from_user.id):
+        await callback.answer("Доступно только администраторам", show_alert=True)
+        return
+    
+    test_id = callback.data.replace("confirm_delete_", "")
+    
+    success = data_manager.delete_test(test_id)
+    
+    if success:
+        await callback.message.answer(f"✅ Тест <b>{test_id}</b> успешно удалён!")
+        await callback.message.delete()  # Удаляем сообщение с подтверждением
+    else:
+        await callback.answer("Ошибка при удалении", show_alert=True)
+    
+    await callback.answer()
+
+
+@router.callback_query(F.data == "cancel_delete")
+async def cancel_delete_test(callback: CallbackQuery):
+    """Отмена удаления теста"""
+    await callback.message.delete()
+    await callback.answer("Удаление отменено")
 
 
 # === Управление правами администратора (только для существующих админов) ===

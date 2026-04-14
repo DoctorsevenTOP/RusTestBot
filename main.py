@@ -57,7 +57,7 @@ except Exception as e:
 logger.info("=" * 50)
 
 # Инициализация бота
-bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = Bot(token=config.BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
@@ -89,16 +89,35 @@ class BecomeAdmin(StatesGroup):
     waiting_for_code = State()
 
 
+# === Состояния для тестов на вставку букв ===
+class InsertTest(StatesGroup):
+    choosing_test = State()  # Выбор теста
+    answering = State()      # Прохождение теста
+    review = State()         # Просмотр результатов
+
+
+# === Состояния для создания тестов на вставку букв ===
+class InsertTestBuilder(StatesGroup):
+    waiting_for_title = State()
+    waiting_for_description = State()
+    waiting_for_text = State()
+    waiting_for_gap_answers = State()
+    waiting_for_letters = State()
+    adding_more_questions = State()
+
+
 # === Вспомогательные функции ===
 def get_main_keyboard(is_admin_user: bool) -> ReplyKeyboardMarkup:
     """Получить главное меню"""
     buttons = [
         [KeyboardButton(text="📋 Список тестов")],
+        [KeyboardButton(text="✍️ Вставка букв")],
         [KeyboardButton(text="🏆 Таблица лидеров")],
         [KeyboardButton(text="📊 Мои результаты")],
     ]
     if is_admin_user:
         buttons.append([KeyboardButton(text="➕ Создать тест")])
+        buttons.append([KeyboardButton(text="✍️ Создать вставку")])
         buttons.append([KeyboardButton(text="👥 Администраторы")])
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
@@ -113,8 +132,8 @@ async def cmd_start(message: Message, state: FSMContext):
     if user:
         # Пользователь уже зарегистрирован
         await message.answer(
-            f"Привет, <b>{user['name']}</b>!\n"
-            f"Твой Telegram ID: <code>{user_id}</code>\n\n"
+            f"Привет, {user['name']}!\n"
+            f"Твой Telegram ID: {user_id}\n\n"
             f"Выбери действие в меню:",
             reply_markup=get_main_keyboard(data_manager.is_admin(user_id))
         )
@@ -135,22 +154,23 @@ async def cmd_help(message: Message):
     user_id = message.from_user.id
     is_admin_user = data_manager.is_admin(user_id)
 
-    text = "<b>📚 Справка по командам бота</b>\n\n"
+    text = "📚 Справка по командам бота\n\n"
 
-    text += "<b>👤 Для всех пользователей:</b>\n"
+    text += "👤 Для всех пользователей:\n"
     text += "/start - Начать работу, узнать свой ID\n"
     text += "/help - Эта справка\n"
     text += "/ping - Проверка работоспособности\n"
     text += "/me - Мой профиль и статус\n"
     text += "/admin - Стать администратором (код: 6418237)\n"
-    text += "/insert - Задания на вставку букв (Mini App)\n"
-    text += "📋 Список тестов - Пройти тест\n"
+    text += "✍️ Вставка букв - Пройти тест на вставку букв\n"
+    text += "📋 Список тестов - Пройти обычный тест\n"
     text += "🏆 Таблица лидеров - Лучшие результаты\n"
     text += "📊 Мои результаты - История прохождений\n\n"
 
     if is_admin_user:
-        text += "<b>🔧 Для администраторов:</b>\n"
-        text += "➕ Создать тест - Интерактивное создание\n"
+        text += "🔧 Для администраторов:\n"
+        text += "➕ Создать тест - Создать обычный тест\n"
+        text += "✍️ Создать вставку - Создать тест на вставку букв\n"
         text += "/edit_test - Редактор тестов (Mini App)\n"
         text += "/export_test <ID> - Экспорт теста в JSON\n"
         text += "/load_test - Загрузка теста из JSON\n"
@@ -159,15 +179,15 @@ async def cmd_help(message: Message):
         text += "/admins - Список администраторов\n"
         text += "/cancel - Отмена действия\n\n"
 
-    text += "<b>ℹ️ Дополнительно:</b>\n"
+    text += "ℹ️ Дополнительно:\n"
     text += "• Тесты выбираются кнопками из списка\n"
     text += "• Вопросы бывают с одиночным и множественным выбором\n"
     text += "• В таблице лидеров показан лучший результат\n"
     text += "• Имена пользователей должны быть уникальны\n\n"
 
-    text += "<i>Бот: Русский язык - Тесты и проверка знаний</i>"
+    text += "Бот: Русский язык - Тесты и проверка знаний"
 
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(text)
 
 
 # === Команда /ping ===
@@ -192,7 +212,7 @@ async def cmd_ping(message: Message):
     except Exception as e:
         text += f"\n❌ Права на запись: ERROR - {e}"
     
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(text)
 
 
 # === Команда /me ===
@@ -221,55 +241,331 @@ async def cmd_me(message: Message):
     else:
         text = "❌ Вы ещё не зарегистрированы.\nНажмите /start для начала работы."
 
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(text)
 
 
-# === Mini App - Задания на вставку букв ===
-@router.message(Command("insert"))
-async def cmd_insert_app(message: Message):
-    """Запустить Mini App с заданием на вставку букв"""
+# === ✍️ Вставка букв - Список тестов ===
+@router.message(F.text == "✍️ Вставка букв")
+@router.message(Command("insert_test"))
+async def cmd_insert_test_list(message: Message):
+    """Показать список тестов на вставку букв"""
     user = data_manager.get_user(message.from_user.id)
-    
+
     if not user:
         await message.answer("❌ Сначала зарегистрируйтесь через /start")
         return
-    
+
     # Получаем тесты с вопросами типа insert_letter
     tests = data_manager.get_tests(only_active=True)
-    
+
     insert_tests = []
     for test_id, test in tests.items():
-        for q in test.get("questions", []):
-            if q.get("type") == "insert_letter":
-                insert_tests.append({
-                    "test_id": test_id,
-                    "title": test["title"],
-                    "question": q
-                })
-    
+        insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+        if insert_questions:
+            insert_tests.append({
+                "test_id": test_id,
+                "title": test["title"],
+                "description": test.get("description", ""),
+                "questions": insert_questions
+            })
+
     if not insert_tests:
         await message.answer(
-            "❌ Пока нет доступных заданий на вставку букв.\n\n"
-            "Администраторы могут создать их через /load_test"
+            "❌ Пока нет доступных тестов на вставку букв.\n\n"
+            "Администраторы могут создать их через кнопку '✍️ Создать вставку'"
         )
         return
-    
-    # Создаём клавиатуру с доступными заданиями
+
+    # Создаём клавиатуру с тестами
     buttons = []
-    for i, task in enumerate(insert_tests[:10]):  # Максимум 10
+    for test in insert_tests:
+        question_count = len(test["questions"])
         buttons.append([InlineKeyboardButton(
-            text=f"📝 {task['title']}",
-            callback_data=f"insert_app_{task['test_id']}_{i}"
+            text=f"📝 {test['title']} ({question_count} вопр.)",
+            callback_data=f"insert_start_{test['test_id']}"
         )])
-    
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    
+
     await message.answer(
-        "📱 <b>Выберите задание</b>\n\n"
+        "✍️ Вставка букв - Выберите тест\n\n"
         "Вам нужно будет вставлять пропущенные буквы в слова.\n"
-        "Нажмите на пропуск, затем выберите правильную букву.",
+        "Выберите тест из списка ниже:",
         reply_markup=keyboard
     )
+
+
+# === Начало теста на вставку букв ===
+@router.callback_query(F.data.startswith("insert_start_"))
+async def start_insert_test(callback: CallbackQuery, state: FSMContext):
+    """Начать прохождение теста на вставку букв"""
+    test_id = callback.data.replace("insert_start_", "")
+    test = data_manager.get_test(test_id)
+
+    if not test:
+        await callback.answer("Тест не найден", show_alert=True)
+        return
+
+    # Фильтруем только вопросы на вставку
+    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+
+    if not insert_questions:
+        await callback.answer("В этом тесте нет вопросов на вставку букв", show_alert=True)
+        return
+
+    # Сохраняем состояние
+    await state.update_data(
+        user_id=callback.from_user.id,
+        test_id=test_id,
+        test_title=test["title"],
+        questions=insert_questions,
+        current_question=0,
+        score=0,
+        total_gaps=0,
+        answers=[]
+    )
+
+    await state.set_state(InsertTest.answering)
+
+    # Показываем первый вопрос
+    await show_insert_question(callback.message, state)
+    await callback.answer()
+
+
+async def show_insert_question(message: Message, state: FSMContext):
+    """Показать вопрос на вставку букв"""
+    data = await state.get_data()
+    questions = data.get("questions", [])
+    current_idx = data.get("current_question", 0)
+
+    if current_idx >= len(questions):
+        await finish_insert_test(message, state)
+        return
+
+    question = questions[current_idx]
+    question_num = current_idx + 1
+    total_questions = len(questions)
+
+    # Разбираем текст с пропусками
+    text = question["text"]
+    gaps = question.get("gaps", [])
+    letters = question.get("letters", [])
+
+    # Заменяем все .. на пронумерованные пропуски
+    gap_number = 0
+    parts = []
+    last_end = 0
+    
+    while ".." in text[last_end:]:
+        gap_pos = text.index("..", last_end)
+        parts.append(text[last_end:gap_pos])
+        gap_number += 1
+        parts.append(f"【{gap_number}】")
+        last_end = gap_pos + 2
+    
+    parts.append(text[last_end:])
+    display_text = "".join(parts)
+
+    # Создаём inline-кнопки с буквами
+    buttons = []
+    row = []
+    for i, letter in enumerate(letters):
+        row.append(InlineKeyboardButton(
+            text=letter,
+            callback_data=f"insert_letter_{i}"
+        ))
+        if len(row) == 4:  # Максимум 4 кнопки в ряду
+            buttons.append(row)
+            row = []
+    
+    if row:
+        buttons.append(row)
+
+    # Кнопка подтверждения
+    buttons.append([InlineKeyboardButton(
+        text="✅ Готово",
+        callback_data="insert_confirm"
+    )])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    # Состояние для текущего вопроса
+    await state.update_data(
+        current_gaps={},  # {gap_index: letter}
+        current_active_gap=0,  # Какой пропуск сейчас активен
+        gaps=gaps,
+        letters=letters,
+        display_text=display_text
+    )
+
+    await message.answer(
+        f"📝 <b>Вопрос {question_num} из {total_questions}</b>\n\n"
+        f"{display_text}\n\n"
+        f"👉 Сейчас заполняется пропуск 【{1}】\n"
+        f"Выберите букву:",
+        reply_markup=keyboard
+    )
+
+
+# === Выбор буквы ===
+@router.callback_query(F.data.startswith("insert_letter_"))
+async def select_insert_letter(callback: CallbackQuery, state: FSMContext):
+    """Выбрать букву для текущего пропуска"""
+    letter_idx = int(callback.data.replace("insert_letter_", ""))
+    
+    data = await state.get_data()
+    current_active_gap = data.get("current_active_gap", 0)
+    current_gaps = data.get("current_gaps", {})
+    gaps = data.get("gaps", [])
+    letters = data.get("letters", [])
+    display_text = data.get("display_text", "")
+    questions = data.get("questions", [])
+    current_idx = data.get("current_question", 0)
+    
+    # Получаем букву по индексу
+    if letter_idx >= len(letters):
+        await callback.answer("⚠️ Ошибка выбора")
+        return
+    
+    letter = letters[letter_idx]
+    
+    # Заполняем текущий пропуск
+    current_gaps[current_active_gap] = letter
+    next_gap = current_active_gap + 1
+    
+    # Обновляем текст с заполненными пропусками
+    updated_text = display_text
+    for gap_idx, gap_letter in current_gaps.items():
+        updated_text = updated_text.replace(f"【{gap_idx + 1}】", f"[{gap_letter}]", 1)
+    
+    await state.update_data(
+        current_gaps=current_gaps,
+        current_active_gap=next_gap,
+        display_text=updated_text
+    )
+    
+    if next_gap < len(gaps):
+        # Ещё есть пропуски - показываем обновлённый текст
+        await callback.message.edit_text(
+            f"📝 <b>Вопрос {current_idx + 1} из {len(questions)}</b>\n\n"
+            f"{updated_text}\n\n"
+            f"👉 Сейчас заполняется пропуск 【{next_gap + 1}】\n"
+            f"Выберите букву:",
+            reply_markup=callback.message.reply_markup
+        )
+        await callback.answer(f"✓ Буква '{letter}' вставлена")
+    else:
+        # Все пропуски заполнены
+        await callback.message.edit_text(
+            f"📝 <b>Вопрос {current_idx + 1} из {len(questions)}</b>\n\n"
+            f"{updated_text}\n\n"
+            f"✅ Все пропуски заполнены! Нажмите 'Готово' для проверки.",
+            reply_markup=callback.message.reply_markup
+        )
+        await callback.answer(f"✓ Буква '{letter}' вставлена. Все пропуски заполнены!")
+
+
+# === Подтверждение ответа ===
+@router.callback_query(F.data == "insert_confirm")
+async def confirm_insert_answer(callback: CallbackQuery, state: FSMContext):
+    """Подтвердить ответ на вопрос"""
+    data = await state.get_data()
+    current_gaps = data.get("current_gaps", {})
+    gaps = data.get("gaps", [])
+    questions = data.get("questions", [])
+    current_idx = data.get("current_question", 0)
+    score = data.get("score", 0)
+    answers = data.get("answers", [])
+
+    # Проверяем все ли пропуски заполнены
+    if None in current_gaps.values() or len(current_gaps) < len(gaps):
+        await callback.answer("⚠️ Заполните все пропуски!", show_alert=True)
+        return
+
+    # Проверяем ответы
+    question = questions[current_idx]
+    correct_count = 0
+    question_details = []
+
+    for gap_idx, gap in enumerate(gaps):
+        user_answer = current_gaps.get(gap_idx, "")
+        correct_answer = gap.get("correct", "").lower()
+        is_correct = user_answer.lower() == correct_answer
+
+        if is_correct:
+            correct_count += 1
+
+        question_details.append({
+            "gap_number": gap_idx + 1,
+            "user_answer": user_answer,
+            "correct_answer": correct_answer,
+            "is_correct": is_correct
+        })
+
+    # Обновляем счёт
+    score += correct_count
+    answers.append({
+        "question": question["text"],
+        "correct": correct_count,
+        "total": len(gaps),
+        "details": question_details
+    })
+
+    total_gaps = data.get("total_gaps", 0) + len(gaps)
+
+    await state.update_data(
+        score=score,
+        total_gaps=total_gaps,
+        answers=answers,
+        current_question=current_idx + 1
+    )
+
+    # Показываем результат и переходим к следующему
+    result_text = f"✅ Правильно: {correct_count} из {len(gaps)}\n\n"
+    for detail in question_details:
+        icon = "✅" if detail["is_correct"] else "❌"
+        result_text += f"{icon} Пропуск {detail['gap_number']}: {detail['user_answer']} (правильно: {detail['correct_answer']})\n"
+
+    await callback.message.answer(result_text)
+
+    # Следующий вопрос или завершение
+    await show_insert_question(callback.message, state)
+    await callback.answer()
+
+
+async def finish_insert_test(message: Message, state: FSMContext):
+    """Завершить тест на вставку букв"""
+    data = await state.get_data()
+    test_title = data.get("test_title", "Тест")
+    score = data.get("score", 0)
+    total_gaps = data.get("total_gaps", 0)
+    answers = data.get("answers", [])
+    user_id = data.get("user_id")
+
+    percentage = round(score / total_gaps * 100, 1) if total_gaps > 0 else 0
+
+    # Сохраняем результат
+    data_manager.save_result(
+        user_id,
+        data.get("test_id", "insert"),
+        score,
+        total_gaps,
+        answers
+    )
+
+    # Показываем итог
+    emoji = "🏆" if percentage >= 80 else "👍" if percentage >= 60 else "📚"
+
+    await message.answer(
+        f"{emoji} Тест завершён!\n\n"
+        f"{test_title}\n"
+        f"Правильно: {score} из {total_gaps}\n"
+        f"Процент: {percentage}%\n\n"
+        f"Результат сохранён!",
+        reply_markup=get_main_keyboard(data_manager.is_admin(message.from_user.id))
+    )
+
+    await state.clear()
 
 
 # === Редактор тестов (Mini App) ===
@@ -340,20 +636,20 @@ async def cmd_export_test(message: Message):
     )
 
 
+# === Универсальный обработчик данных из Mini Apps ===
 @router.message(F.web_app_data)
-async def handle_editor_result(message: Message):
-    """Обработка данных из редактора"""
-    if not data_manager.is_admin(message.from_user.id):
-        return
-    
+async def handle_webapp_data(message: Message):
+    """Обработка данных из всех Mini Apps"""
     try:
         import json
         data = json.loads(message.web_app_data.data)
-        
         action = data.get("action")
-        
+
+        # === Обработка данных от редактора тестов ===
         if action == "get_tests_list":
-            # Отправляем список тестов
+            if not data_manager.is_admin(message.from_user.id):
+                return
+
             tests = data_manager.get_tests()
             tests_list = [
                 {
@@ -364,8 +660,7 @@ async def handle_editor_result(message: Message):
                 }
                 for tid, t in tests.items()
             ]
-            
-            # Отправляем список в редактор
+
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📚 Обновить список", callback_data="refresh_tests")]
             ])
@@ -373,11 +668,11 @@ async def handle_editor_result(message: Message):
                 "📋 Список тестов отправлен в редактор",
                 reply_markup=keyboard
             )
-            # Для Mini App нужно использовать answer_web_app_query
-            # Это упрощённая версия
-            
+
         elif action == "create_test":
-            # Создаём новый тест
+            if not data_manager.is_admin(message.from_user.id):
+                return
+
             test_id = data_manager.generate_test_id()
             test_data = {
                 "title": data["title"],
@@ -387,9 +682,9 @@ async def handle_editor_result(message: Message):
                 "created_by": message.from_user.id,
                 "created_at": data_manager.get_now_msk()
             }
-            
+
             data_manager.save_test(test_id, test_data)
-            
+
             await message.answer(
                 f"✅ <b>Тест создан!</b>\n\n"
                 f"ID: <code>{test_id}</code>\n"
@@ -397,20 +692,21 @@ async def handle_editor_result(message: Message):
                 f"Вопросов: {len(data['questions'])}\n\n"
                 f"Теперь пользователи могут проходить этот тест."
             )
-            
+
         elif action == "update_test":
-            # Обновляем существующий тест
+            if not data_manager.is_admin(message.from_user.id):
+                return
+
             test_id = data.get("test_id")
-            
             if not test_id:
                 await message.answer("❌ Не указан ID теста")
                 return
-            
+
             test = data_manager.get_test(test_id)
             if not test:
                 await message.answer(f"❌ Тест с ID <code>{test_id}</code> не найден")
                 return
-            
+
             test_data = {
                 "title": data["title"],
                 "description": data.get("description", ""),
@@ -419,9 +715,9 @@ async def handle_editor_result(message: Message):
                 "updated_by": message.from_user.id,
                 "updated_at": data_manager.get_now_msk()
             }
-            
+
             data_manager.save_test(test_id, test_data)
-            
+
             await message.answer(
                 f"✅ <b>Тест обновлён!</b>\n\n"
                 f"ID: <code>{test_id}</code>\n"
@@ -429,9 +725,114 @@ async def handle_editor_result(message: Message):
                 f"Вопросов: {len(data['questions'])}\n\n"
                 f"Изменения применены."
             )
+
+        # === Обработка запроса тестов на вставку букв ===
+        elif action == "get_insert_tests":
+            tests = data_manager.get_tests(only_active=True)
+            insert_tests = []
             
+            for test_id, test in tests.items():
+                insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+                if insert_questions:
+                    insert_tests.append({
+                        "test_id": test_id,
+                        "title": test["title"],
+                        "description": test.get("description", ""),
+                        "questions": insert_questions
+                    })
+            
+            # В данной версии просто логируем
+            logger.info(f"Requested insert tests: {len(insert_tests)} tests found")
+
+        # === Обработка создания теста на вставку букв ===
+        elif action == "create_insert_test":
+            if not data_manager.is_admin(message.from_user.id):
+                await message.answer("❌ Эта команда доступна только администраторам.")
+                return
+
+            title = data.get("title")
+            description = data.get("description", "")
+            questions = data.get("questions", [])
+
+            if not title or not questions:
+                await message.answer("❌ Ошибка: указаны не все данные")
+                return
+
+            test_id = data_manager.generate_test_id()
+            test_data = {
+                "title": title,
+                "description": description,
+                "active": data.get("active", True),
+                "questions": questions,
+                "created_by": message.from_user.id,
+                "created_at": data_manager.get_now_msk()
+            }
+
+            data_manager.save_test(test_id, test_data)
+
+            await message.answer(
+                f"✅ <b>Тест на вставку букв создан!</b>\n\n"
+                f"ID: <code>{test_id}</code>\n"
+                f"Название: {title}\n"
+                f"Вопросов: {len(questions)}\n\n"
+                f"Пользователи могут проходить его через /insert_test"
+            )
+
+        # === Обработка результатов теста на вставку букв ===
+        elif action == "submit_insert_test":
+            user_id = message.from_user.id
+            test_id = data.get("test_id")
+            score = data.get("score", 0)
+            total = data.get("total", 0)
+            percentage = data.get("percentage", 0)
+
+            result = data_manager.save_result(user_id, test_id, score, total, [{
+                "type": "insert_letter",
+                "score": score,
+                "total": total,
+                "answers": data.get("answers", {})
+            }])
+
+            emoji = "🏆" if percentage >= 80 else "👍" if percentage >= 60 else "📚"
+
+            await message.answer(
+                f"{emoji} <b>Результат сохранён!</b>\n\n"
+                f"<b>{test_id}</b>\n"
+                f"Правильно: {score} из {total}\n"
+                f"Процент: {percentage}%\n\n"
+                f"Результат добавлен в таблицу лидеров! 🏆"
+            )
+
+        # === Обработка результатов из старого Mini App (без action) ===
+        elif "test_id" in data and "score" in data and "percentage" in data:
+            user_id = message.from_user.id
+            test_id = data.get("test_id")
+            score = data.get("score", 0)
+            total = data.get("total", 0)
+            percentage = data.get("percentage", 0)
+
+            data_manager.save_result(user_id, test_id, score, total, [{
+                "type": "insert_letter",
+                "score": score,
+                "total": total,
+                "answers": data.get("answers", {})
+            }])
+
+            emoji = "🏆" if percentage >= 80 else "👍" if percentage >= 60 else "📚"
+
+            await message.answer(
+                f"{emoji} <b>Результат сохранён!</b>\n\n"
+                f"<b>{test_id}</b>\n"
+                f"Правильно: {score} из {total}\n"
+                f"Процент: {percentage}%\n\n"
+                f"Результат добавлен в таблицу лидеров! 🏆"
+            )
+
+    except json.JSONDecodeError:
+        # Это не JSON, игнорируем
+        pass
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+        await message.answer(f"❌ Ошибка обработки данных: {e}")
 
 
 @router.callback_query(F.data.startswith("insert_app_"))
@@ -447,7 +848,7 @@ async def launch_insert_app(callback: CallbackQuery):
         return
     
     # Находим вопросы типа insert_letter
-    insert_questions = [q for q in test.get("questions", []) if q.get("type") == "insert_letter"]
+    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
     
     if not insert_questions or question_idx >= len(insert_questions):
         await callback.answer("Вопрос не найден", show_alert=True)
@@ -489,40 +890,55 @@ async def launch_insert_app(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.message(F.web_app_data)
-async def handle_miniapp_result(message: Message):
-    """Обработка результатов из Mini App"""
-    try:
-        import json
-        result = json.loads(message.web_app_data.data)
-        
-        user_id = message.from_user.id
-        test_id = result.get("test_id")
-        score = result.get("score", 0)
-        total = result.get("total", 0)
-        percentage = result.get("percentage", 0)
-        
-        # Сохраняем результат
-        data_manager.save_result(user_id, test_id, score, total, [{
-            "type": "insert_letter",
-            "score": score,
-            "total": total,
-            "answers": result.get("answers", {})
-        }])
-        
-        # Показываем результат
-        emoji = "🏆" if percentage >= 80 else "👍" if percentage >= 60 else "📚"
-        
-        await message.answer(
-            f"{emoji} <b>Результат сохранён!</b>\n\n"
-            f"<b>{test_id}</b>\n"
-            f"Правильно: {score} из {total}\n"
-            f"Процент: {percentage}%\n\n"
-            f"Результат добавлен в таблицу лидеров! 🏆"
-        )
-        
-    except Exception as e:
-        await message.answer(f"❌ Ошибка обработки результата: {e}")
+@router.callback_query(F.data.startswith("insert_app_"))
+async def launch_insert_app(callback: CallbackQuery):
+    """Запуск Mini App с заданием"""
+    parts = callback.data.replace("insert_app_", "").split("_")
+    test_id = parts[0]
+    question_idx = int(parts[1]) if len(parts) > 1 else 0
+
+    test = data_manager.get_test(test_id)
+    if not test:
+        await callback.answer("Тест не найден", show_alert=True)
+        return
+
+    # Находим вопросы типа insert_letter
+    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+
+    if not insert_questions or question_idx >= len(insert_questions):
+        await callback.answer("Вопрос не найден", show_alert=True)
+        return
+
+    question = insert_questions[question_idx]
+
+    # Формируем данные для Mini App
+    import json
+    from urllib.parse import quote
+
+    app_data = {
+        "test_id": test_id,
+        "task_id": f"insert_{test_id}_{question_idx}",
+        "title": test["title"],
+        "description": question.get("description", "Вставьте пропущенные буквы"),
+        "questions": [{
+            "text": question["text"],
+            "gaps": question["gaps"],
+            "letters": question["letters"]
+        }]
+    }
+
+    app_url = f"https://doctorseventop.github.io/RusTestBot/miniapp.html?data={quote(json.dumps(app_data))}"
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Запустить", web_app={"url": app_url})]
+    ])
+
+    await callback.message.answer(
+        f"📝 <b>{test['title']}</b>\n\n"
+        f"Нажмите кнопку ниже чтобы начать:",
+        reply_markup=keyboard
+    )
+    await callback.answer()
 
 
 # === Команда /admin - стать администратором ===
@@ -606,7 +1022,7 @@ async def cmd_admins(message: Message):
         else:
             text += "\n"
 
-    text += f"Всего администраторов: <b>{len(admins)}</b>"
+    text += f"Всего администраторов: {len(admins)}"
     await message.answer(text)
 
 
@@ -654,19 +1070,26 @@ async def show_admins_button(message: Message):
 # === Список тестов ===
 @router.message(F.text == "📋 Список тестов")
 async def show_tests(message: Message):
-    """Показать список доступных тестов"""
+    """Показать список доступных тестов (только обычные, не вставка букв)"""
     tests = data_manager.get_tests(only_active=True)
 
-    if not tests:
+    # Фильтруем - только тесты с обычными вопросами
+    regular_tests = {}
+    for test_id, test in tests.items():
+        has_regular = any(q.get("question_type") != "insert_letter" for q in test.get("questions", []))
+        if has_regular:
+            regular_tests[test_id] = test
+
+    if not regular_tests:
         await message.answer("Пока нет доступных тестов.")
         return
 
-    text = "<b>📚 Доступные тесты:</b>\n\n"
+    text = "📚 Доступные тесты:\n\n"
     buttons = []
 
-    for test_id, test in tests.items():
+    for test_id, test in regular_tests.items():
         questions_count = len(test.get("questions", []))
-        text += f"<b>{test_id}. {test['title']}</b>\n"
+        text += f"{test_id}. {test['title']}\n"
         text += f"{test.get('description', 'Без описания')}\n"
         text += f"Вопросов: {questions_count}\n\n"
         buttons.append([InlineKeyboardButton(text=f"▶️ {test['title']}", callback_data=f"start_test_{test_id}")])
@@ -708,20 +1131,71 @@ async def show_question(message, question, question_num, total):
     q_type = question.get("type", "single")
     options = question.get("options")
     answer = question.get("answer")
-    
+    gaps = question.get("gaps")
+    letters = question.get("letters")
+
+    # === insert_letter - показываем текст с пропусками и кнопки букв ===
+    if q_type == "insert_letter" and gaps and letters:
+        text = question["text"]
+        
+        # Заменяем .. на пронумерованные пропуски
+        gap_number = 0
+        parts = []
+        last_end = 0
+        
+        while ".." in text[last_end:]:
+            gap_pos = text.index("..", last_end)
+            parts.append(text[last_end:gap_pos])
+            gap_number += 1
+            parts.append(f"【{gap_number}】")
+            last_end = gap_pos + 2
+        
+        parts.append(text[last_end:])
+        display_text = "".join(parts)
+
+        # Создаём inline-кнопки с буквами
+        buttons = []
+        row = []
+        for i, letter in enumerate(letters):
+            row.append(InlineKeyboardButton(
+                text=letter,
+                callback_data=f"answer_option_{i}"
+            ))
+            if len(row) == 4:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        # Кнопка "Готово"
+        buttons.append([InlineKeyboardButton(
+            text="✅ Готово",
+            callback_data="answer_done"
+        )])
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+        await message.answer(
+            f"<b>Вопрос {question_num} из {total}</b>\n\n"
+            f"{display_text}\n\n"
+            f"<i>Нажмите на пропуск, затем выберите букву:</i>",
+            reply_markup=keyboard
+        )
+        return
+
     # Проверяем множественный выбор по типу или по структуре answer
-    is_multiple = (q_type == "multiple" or 
+    is_multiple = (q_type == "multiple" or
                    isinstance(answer, list) or
                    (options is not None))
-    
+
     if is_multiple and options:
         # Множественный выбор - создаём inline-кнопки
         buttons = []
         for i, option in enumerate(options):
             buttons.append([InlineKeyboardButton(text=option, callback_data=f"answer_option_{i}")])
-        
+
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-        
+
         await message.answer(
             f"<b>Вопрос {question_num} из {total}</b>\n\n"
             f"{question['text']}\n\n"
@@ -729,7 +1203,7 @@ async def show_question(message, question, question_num, total):
             f"<i>Нажмите ✅ Готово, когда закончите</i>",
             reply_markup=keyboard
         )
-        
+
         # Кнопка "Готово"
         done_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Готово", callback_data="answer_done")]
@@ -799,25 +1273,75 @@ async def handle_answer_done(callback: CallbackQuery, state: FSMContext):
 
 
 async def process_multiple_answer(callback: CallbackQuery, state: FSMContext, selected_indices: list):
-    """Обработка ответа с множественным выбором"""
+    """Обработка ответа с множественным выбором или insert_letter"""
     data = await state.get_data()
     test_id = data["current_test_id"]
     current_question = data["current_question"]
-    score = data["score"]
+    score = data.get("score", 0)
     answers = data.get("answers", [])
 
     test = data_manager.get_test(test_id)
     question = test["questions"][current_question]
-    
+    q_type = question.get("type", "single")
+
+    # === insert_letter - проверяем буквы против gaps ===
+    if q_type == "insert_letter":
+        gaps = question.get("gaps", [])
+        letters = question.get("letters", [])
+        
+        # Получаем выбранные буквы
+        selected_letters = [letters[i] for i in selected_indices if i < len(letters)]
+        correct_letters = [g["correct"] for g in gaps]
+        
+        # Сравниваем (порядок важен для insert_letter)
+        is_correct = selected_letters == correct_letters
+        
+        if is_correct:
+            score += 1
+
+        answers.append({
+            "question": question["text"],
+            "user_answer": selected_letters,
+            "correct_answer": correct_letters,
+            "is_correct": is_correct,
+            "type": "insert_letter"
+        })
+
+        await state.update_data(selected_options=None)
+
+        # Следующий вопрос или завершение
+        if current_question + 1 < len(test["questions"]):
+            await state.update_data(
+                current_question=current_question + 1,
+                score=score,
+                answers=answers
+            )
+            next_question = test["questions"][current_question + 1]
+            await show_question(callback.message, next_question, current_question + 2, len(test["questions"]))
+        else:
+            await state.clear()
+            total = len(test["questions"])
+            data_manager.save_result(callback.from_user.id, test_id, score, total, answers)
+
+            percentage = round(score / total * 100, 1)
+            await callback.message.answer(
+                f"<b>✅ Тест завершён!</b>\n\n"
+                f"Твой результат: <b>{score} из {total}</b> ({percentage}%)\n\n"
+                f"Выбери действие в меню:",
+                reply_markup=get_main_keyboard(data_manager.is_admin(callback.from_user.id))
+            )
+        return
+
+    # === Множественный выбор ===
     # Получаем выбранные варианты
     selected_answers = [question["options"][i] for i in selected_indices]
     correct_answers = question.get("answer", [])
-    
+
     # Проверяем: все ли правильные выбраны и нет ли неправильных
     selected_set = set(selected_answers)
     correct_set = set(correct_answers)
     is_correct = selected_set == correct_set
-    
+
     if is_correct:
         score += 1
 
@@ -959,13 +1483,12 @@ async def show_test_leaderboard(callback: CallbackQuery):
         await callback.answer()
         return
 
-    text = f"<b>🏆 Таблица лидеров: {test['title']}</b>\n"
-    text += "<i>(показан лучший результат для каждого пользователя)</i>\n\n"
+    text = f"🏆 Таблица лидеров: {test['title']}\n"
+    text += "(показан лучший результат для каждого пользователя)\n\n"
 
     for i, entry in enumerate(leaderboard, 1):
         medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-        text += f"{medal} <b>{entry['name']}</b> — {entry['score']}/{entry['total']} ({entry['percentage']}%)\n"
-        # Форматируем дату в MSK
+        text += f"{medal} {entry['name']} — {entry['score']}/{entry['total']} ({entry['percentage']}%)\n"
         completed_at = entry.get('completed_at', '')
         if completed_at:
             formatted_date = data_manager.format_date_msk(completed_at)
@@ -988,13 +1511,12 @@ async def show_my_results(message: Message):
         await message.answer("У тебя пока нет пройденных тестов.")
         return
 
-    text = "<b>📊 Твои результаты:</b>\n\n"
+    text = "📊 Твои результаты:\n\n"
     for r in results:
         test = data_manager.get_test(r["test_id"])
         test_name = test["title"] if test else f"Тест #{r['test_id']}"
-        # Форматируем дату в MSK
         date = data_manager.format_date_msk(r["completed_at"])
-        text += f"<b>{test_name}</b>\n"
+        text += f"{test_name}\n"
         text += f"Результат: {r['score']}/{r['total']} ({r['percentage']}%)\n"
         text += f"Дата: {date}\n\n"
 
@@ -1388,20 +1910,24 @@ async def cmd_load_test(message: Message):
     if not data_manager.is_admin(message.from_user.id):
         await message.answer("Эта команда доступна только администраторам.")
         return
-    
+
     await message.answer(
-        "<b>📥 Загрузка теста из JSON</b>\n\n"
+        "📥 Загрузка теста из JSON\n\n"
         "Отправьте JSON файл с тестом или вставьте его содержимое сообщением.\n\n"
         "Формат JSON:\n"
-        "<pre>{{\n"
+        "```\n"
+        "{\n"
         '  "title": "Название теста",\n'
         '  "description": "Описание",\n'
         '  "questions": [\n'
-        '    {{"text": "Вопрос 1", "answer": "Ответ 1"}},\n'
-        '    {{"text": "Вопрос 2", "answer": "Ответ 2"}}\n'
+        '    {"text": "Вопрос 1", "answer": "Ответ 1"},\n'
+        '    {"type": "insert_letter", "text": "Див..н",\n'
+        '     "gaps": [{"position": 0, "correct": "а"}],\n'
+        '     "letters": ["а", "о", "н"]}\n'
         "  ]\n"
-        "}}</pre>\n\n"
-        "Используйте конструктор: <code>test_builder.html</code>"
+        "}\n"
+        "```\n\n"
+        "Поддерживаются обычные тесты и тесты на вставку букв."
     )
 
 
@@ -1426,17 +1952,245 @@ async def handle_document(message: Message):
             await message.answer(f"❌ Ошибка при чтении файла: {e}")
 
 
+# === ✍️ Создать вставку (для администраторов) - ДОЛЖНО БЫТЬ ДО F.text ===
+@router.message(F.text == "✍️ Создать вставку")
+@router.message(Command("insert_builder"))
+async def cmd_insert_builder(message: Message, state: FSMContext):
+    """Начать создание теста на вставку букв"""
+    logger.info(f"Получена команда создания вставки от пользователя {message.from_user.id}")
+    
+    if not data_manager.is_admin(message.from_user.id):
+        await message.answer("❌ Эта команда доступна только администраторам.")
+        return
+
+    await message.answer(
+        "✍️ <b>Создание теста на вставку букв</b>\n\n"
+        "Введите название теста (например: Правописание -Н- и -НН-):"
+    )
+    await state.set_state(InsertTestBuilder.waiting_for_title)
+
+
+@router.message(InsertTestBuilder.waiting_for_title)
+async def process_insert_test_title(message: Message, state: FSMContext):
+    """Обработка названия теста"""
+    if message.text == "/cancel":
+        await state.clear()
+        await message.answer("Создание теста отменено.", reply_markup=get_main_keyboard(True))
+        return
+
+    title = message.text.strip()
+    if len(title) < 3:
+        await message.answer("Название слишком короткое. Введите корректное название:")
+        return
+
+    await state.update_data(title=title, questions=[])
+    await message.answer(
+        f"✅ Название сохранено: <b>{title}</b>\n\n"
+        f"Введите описание теста (или напишите 'пропустить'):"
+    )
+    await state.set_state(InsertTestBuilder.waiting_for_description)
+
+
+@router.message(InsertTestBuilder.waiting_for_description)
+async def process_insert_test_description(message: Message, state: FSMContext):
+    """Обработка описания теста"""
+    if message.text == "/cancel":
+        await state.clear()
+        await message.answer("Создание теста отменено.", reply_markup=get_main_keyboard(True))
+        return
+
+    description = message.text.strip()
+    if description.lower() == "пропустить":
+        description = ""
+
+    await state.update_data(description=description)
+    await message.answer(
+        f"✅ Описание сохранено.\n\n"
+        f"<b>Добавление вопросов</b>\n\n"
+        f"Введите текст с пропусками (используйте .. для пропусков):\n\n"
+        f"<i>Пример: В комнате стоял див..н, который был украше.. узором.</i>"
+    )
+    await state.set_state(InsertTestBuilder.waiting_for_text)
+
+
+@router.message(InsertTestBuilder.waiting_for_text)
+async def process_insert_test_text(message: Message, state: FSMContext):
+    """Обработка текста вопроса"""
+    if message.text == "/cancel":
+        data = await state.get_data()
+        if data.get("questions"):
+            await save_insert_test(message.from_user.id, state)
+            return
+        await state.clear()
+        await message.answer("Создание теста отменено.", reply_markup=get_main_keyboard(True))
+        return
+
+    text = message.text.strip()
+    
+    # Проверяем что это не команда "пропустить"
+    if text.lower() == "пропустить":
+        await message.answer(
+            "⚠️ На этом шаге нужно ввести текст вопроса с пропусками (..).\n\n"
+            f"<i>Пример: В комнате стоял див..н, который был украше.. узором.</i>\n\n"
+            f"Если хотите пропустить описание, это нужно было сделать на предыдущем шаге."
+        )
+        return
+    
+    if ".." not in text:
+        await message.answer(
+            "⚠️ Текст должен содержать минимум один пропуск (..).\n\n"
+            f"<i>Пример: В комнате стоял див..н.</i>\n\n"
+            f"Повторите ввод:"
+        )
+        return
+
+    gap_count = text.count("..")
+    await state.update_data(current_text=text, gap_count=gap_count)
+    await message.answer(
+        f"✅ Текст принят. Найдено пропусков: <b>{gap_count}</b>\n\n"
+        f"Теперь введите правильные буквы для каждого пропуска через пробел:\n\n"
+        f"<i>Пример: а н (для двух пропусков)</i>"
+    )
+    await state.set_state(InsertTestBuilder.waiting_for_gap_answers)
+
+
+@router.message(InsertTestBuilder.waiting_for_gap_answers)
+async def process_insert_gap_answers(message: Message, state: FSMContext):
+    """Обработка правильных букв для пропусков"""
+    if message.text == "/cancel":
+        await state.clear()
+        await message.answer("Создание теста отменено.", reply_markup=get_main_keyboard(True))
+        return
+
+    answers = message.text.strip().lower().split()
+    data = await state.get_data()
+    gap_count = data.get("gap_count", 0)
+
+    if len(answers) != gap_count:
+        await message.answer(
+            f"⚠️ Нужно ввести {gap_count} букв(ы) через пробел.\n\n"
+            f"Повторите ввод:"
+        )
+        return
+
+    await state.update_data(gap_answers=answers)
+    await message.answer(
+        f"✅ Правильные буквы сохранены.\n\n"
+        f"Теперь введите варианты букв для выбора (минимум 2, через пробел):\n\n"
+        f"<i>Пример: а о н е</i>\n\n"
+        f"<i>Правильные буквы уже включены автоматически.</i>"
+    )
+    await state.set_state(InsertTestBuilder.waiting_for_letters)
+
+
+@router.message(InsertTestBuilder.waiting_for_letters)
+async def process_insert_letters(message: Message, state: FSMContext):
+    """Обработка вариантов букв"""
+    if message.text == "/cancel":
+        await state.clear()
+        await message.answer("Создание теста отменено.", reply_markup=get_main_keyboard(True))
+        return
+
+    letters = message.text.strip().lower().split()
+    data = await state.get_data()
+    gap_answers = data.get("gap_answers", [])
+
+    all_letters = set(letters + gap_answers)
+    if len(all_letters) < 2:
+        await message.answer("⚠️ Нужно минимум 2 варианта букв.\n\nПовторите ввод:")
+        return
+
+    questions = data.get("questions", [])
+    questions.append({
+        "type": "insert_letter",
+        "text": data["current_text"],
+        "gaps": [{"position": i, "correct": gap_answers[i]} for i in range(len(gap_answers))],
+        "letters": sorted(list(all_letters)),
+        "description": "Вставьте пропущенные буквы"
+    })
+
+    await state.update_data(questions=questions)
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Добавить ещё вопрос", callback_data="insert_add_more")],
+        [InlineKeyboardButton(text="✅ Завершить создание", callback_data="insert_finish")]
+    ])
+
+    await message.answer(
+        f"✅ Вопрос добавлен! Всего вопросов: {len(questions)}\n\n"
+        f"Что делаем дальше?",
+        reply_markup=keyboard
+    )
+    await state.set_state(InsertTestBuilder.adding_more_questions)
+
+
+@router.callback_query(F.data == "insert_add_more")
+async def insert_add_more(callback: CallbackQuery, state: FSMContext):
+    """Добавить ещё вопрос"""
+    await callback.message.answer(
+        f"Введите текст следующего вопроса (используйте .. для пропусков):\n\n"
+        f"<i>Пример: Краше..ая корзина была поставле..а на стол.</i>"
+    )
+    await state.set_state(InsertTestBuilder.waiting_for_text)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "insert_finish")
+async def insert_finish(callback: CallbackQuery, state: FSMContext):
+    """Завершить создание теста"""
+    await save_insert_test(callback.from_user.id, state)
+    await callback.answer()
+
+
+async def save_insert_test(user_id: int, state: FSMContext):
+    """Сохранить созданный тест"""
+    data = await state.get_data()
+    questions = data.get("questions", [])
+
+    if not questions:
+        await bot.send_message(user_id, "❌ Тест должен содержать хотя бы один вопрос.")
+        await state.clear()
+        return
+
+    test_id = data_manager.generate_test_id()
+    test_data = {
+        "title": data["title"],
+        "description": data.get("description", ""),
+        "active": True,
+        "questions": questions,
+        "created_by": user_id,
+        "created_at": data_manager.get_now_msk()
+    }
+
+    data_manager.save_test(test_id, test_data)
+    await state.clear()
+
+    await bot.send_message(
+        user_id,
+        f"✅ <b>Тест на вставку букв создан!</b>\n\n"
+        f"ID теста: <code>{test_id}</code>\n"
+        f"Название: {data['title']}\n"
+        f"Вопросов: {len(questions)}\n\n"
+        f"Теперь пользователи могут проходить этот тест через кнопку '✍️ Вставка букв'.",
+        reply_markup=get_main_keyboard(data_manager.is_admin(user_id))
+    )
+
+
 @router.message(F.text)
 async def handle_json_text(message: Message, state: FSMContext):
     """Обработка JSON в текстовом виде"""
-    if not data_manager.is_admin(message.from_user.id):
+    # Игнорируем кнопки меню
+    if message.text in ["✍️ Создать вставку", "✍️ Вставка букв"]:
         return
     
+    if not data_manager.is_admin(message.from_user.id):
+        return
+
     # Проверяем, не находится ли пользователь в другом состоянии (создание теста, прохождение)
     current_state = await state.get_state()
     if current_state:
         return  # Пропускаем, если пользователь в процессе создания/прохождения теста
-    
+
     text = message.text.strip()
     if text.startswith('{') and text.endswith('}'):
         try:
@@ -1453,17 +2207,32 @@ async def process_test_json(message: Message, test_data: dict):
     if not test_data.get("title"):
         await message.answer("❌ Ошибка: Отсутствует поле 'title'")
         return
-    
+
     if not test_data.get("questions") or not isinstance(test_data["questions"], list):
         await message.answer("❌ Ошибка: Отсутствует или неверно поле 'questions'")
         return
-    
+
     # Проверка вопросов
     for i, q in enumerate(test_data["questions"]):
-        if not q.get("text") or not q.get("answer"):
-            await message.answer(f"❌ Ошибка: Вопрос #{i+1} не содержит 'text' или 'answer'")
+        if not q.get("text"):
+            await message.answer(f"❌ Ошибка: Вопрос #{i+1} не содержит 'text'")
             return
-    
+        
+        q_type = q.get("type", "single")
+        
+        # Для insert_letter проверяем gaps и letters
+        if q_type == "insert_letter":
+            if not q.get("gaps"):
+                await message.answer(f"❌ Ошибка: Вопрос #{i+1} (вставка букв) не содержит 'gaps'")
+                return
+            if not q.get("letters"):
+                await message.answer(f"❌ Ошибка: Вопрос #{i+1} (вставка букв) не содержит 'letters'")
+                return
+        # Для обычных вопросов проверяем answer
+        elif not q.get("answer"):
+            await message.answer(f"❌ Ошибка: Вопрос #{i+1} не содержит 'answer'")
+            return
+
     # Сохранение теста
     test_id = data_manager.generate_test_id()
     test_data_full = {
@@ -1471,16 +2240,27 @@ async def process_test_json(message: Message, test_data: dict):
         "description": test_data.get("description", "Без описания"),
         "questions": test_data["questions"],
         "created_by": message.from_user.id,
-        "created_at": data_manager.datetime.now().isoformat()
+        "created_at": data_manager.get_now_msk()
     }
-    
+
     data_manager.save_test(test_id, test_data_full)
     
+    # Считаем типы вопросов
+    insert_count = sum(1 for q in test_data["questions"] if q.get("type") == "insert_letter")
+    regular_count = len(test_data["questions"]) - insert_count
+
+    type_info = ""
+    if insert_count > 0:
+        type_info += f"✍️ Вставка букв: {insert_count}\n"
+    if regular_count > 0:
+        type_info += f"📝 Обычные: {regular_count}\n"
+
     await message.answer(
-        f"<b>✅ Тест загружен!</b>\n\n"
+        f"✅ <b>Тест загружен!</b>\n\n"
         f"ID теста: <code>{test_id}</code>\n"
         f"Название: {test_data['title']}\n"
-        f"Вопросов: {len(test_data['questions'])}\n\n"
+        f"Вопросов: {len(test_data['questions'])}\n"
+        f"{type_info}\n"
         f"Теперь пользователи могут проходить этот тест."
     )
 
@@ -1493,10 +2273,10 @@ async def main():
         print("❌ ОШИБКА: Укажите токен бота в config.py")
         print("Получите токен у @BotFather в Telegram")
         return
-    
+
     if config.ADMIN_IDS == [123456789]:
         print("⚠️ ВНИМАНИЕ: Укажите ваши Telegram ID в config.py (ADMIN_IDS)")
-    
+
     print("🤖 Бот запускается...")
     await dp.start_polling(bot)
 

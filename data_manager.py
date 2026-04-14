@@ -270,7 +270,18 @@ def get_tests(only_active: bool = False) -> Dict[str, Dict]:
             q_dict = dict(q)
             # Парсим options из JSON
             if q_dict.get("options"):
-                q_dict["options"] = json.loads(q_dict["options"])
+                try:
+                    options_data = json.loads(q_dict["options"])
+                    q_dict["options"] = options_data
+                    
+                    # Для insert_letter извлекаем gaps и letters на верхний уровень
+                    if q_dict.get("question_type") == "insert_letter" and isinstance(options_data, dict):
+                        if "gaps" in options_data:
+                            q_dict["gaps"] = options_data["gaps"]
+                        if "letters" in options_data:
+                            q_dict["letters"] = options_data["letters"]
+                except Exception:
+                    pass
             # Парсим answer для multiple choice
             if q_dict.get("answer") and q_dict.get("question_type") == "multiple":
                 try:
@@ -333,17 +344,25 @@ def save_test(test_id: str, test_data: Dict):
     for q in test_data.get("questions", []):
         options = None
         answer = q.get("answer")
-        
-        # Сериализуем options и answer для multiple choice
-        if q.get("options"):
+        q_type = q.get("type", "single")
+
+        # Для insert_letter сохраняем gaps и letters в options
+        if q_type == "insert_letter":
+            options = json.dumps({
+                "gaps": q.get("gaps", []),
+                "letters": q.get("letters", []),
+                "type": "insert_letter"
+            }, ensure_ascii=False)
+        # Для multiple choice сериализуем options и answer
+        elif q.get("options"):
             options = json.dumps(q["options"], ensure_ascii=False)
-        if q.get("type") == "multiple" and isinstance(answer, list):
-            answer = json.dumps(answer, ensure_ascii=False)
-        
+            if isinstance(answer, list):
+                answer = json.dumps(answer, ensure_ascii=False)
+
         cursor.execute("""
             INSERT INTO questions (test_id, question_type, text, answer, options)
             VALUES (?, ?, ?, ?, ?)
-        """, (test_id, q.get("type", "single"), q["text"], answer, options))
+        """, (test_id, q_type, q["text"], answer, options))
     
     conn.commit()
     conn.close()

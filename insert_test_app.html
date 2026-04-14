@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Вставка букв - Тест</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #000000);
+            --hint-color: var(--tg-theme-hint-color, #888888);
+            --button-color: var(--tg-theme-button-color, #3390ec);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f2f5);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .test-selector {
+            background: var(--secondary-bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .test-selector h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .test-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .test-item {
+            padding: 12px 16px;
+            background: var(--bg-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .test-item:hover {
+            border-color: var(--button-color);
+        }
+
+        .test-item.selected {
+            border-color: var(--button-color);
+            background: rgba(51, 144, 236, 0.1);
+        }
+
+        .test-item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .test-item-info {
+            font-size: 12px;
+            color: var(--hint-color);
+        }
+
+        .game-screen {
+            display: none;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--secondary-bg);
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .question-card {
+            background: var(--secondary-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .question-number {
+            font-size: 12px;
+            color: var(--hint-color);
+        }
+
+        .question-text {
+            font-size: 18px;
+            line-height: 1.8;
+            margin-bottom: 16px;
+        }
+
+        .letter-gap {
+            display: inline-block;
+            min-width: 36px;
+            height: 36px;
+            border: 2px solid var(--button-color);
+            border-radius: 8px;
+            text-align: center;
+            line-height: 32px;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0 2px;
+            cursor: pointer;
+            background: var(--bg-color);
+            transition: all 0.2s;
+            vertical-align: middle;
+            padding: 0 4px;
+        }
+
+        .letter-gap:hover {
+            transform: scale(1.1);
+        }
+
+        .letter-gap.filled {
+            background: var(--button-color);
+            color: var(--button-text-color);
+        }
+
+        .letter-gap.active {
+            box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.3);
+            transform: scale(1.1);
+        }
+
+        .letter-gap.correct {
+            background: #2ed573;
+            border-color: #2ed573;
+            color: white;
+        }
+
+        .letter-gap.wrong {
+            background: #ff4757;
+            border-color: #ff4757;
+            color: white;
+        }
+
+        .letters-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            padding: 16px;
+            background: var(--secondary-bg);
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .letter-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 10px;
+            background: var(--button-color);
+            color: var(--button-text-color);
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .letter-btn:active {
+            transform: scale(0.9);
+            opacity: 0.8;
+        }
+
+        .letter-btn:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: var(--button-color);
+            color: var(--button-text-color);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .action-btn.secondary {
+            background: var(--secondary-bg);
+            color: var(--text-color);
+        }
+
+        .result-screen {
+            display: none;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .result-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .result-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .result-score {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--button-color);
+            margin: 20px 0;
+        }
+
+        .result-details {
+            font-size: 16px;
+            color: var(--hint-color);
+            margin-bottom: 30px;
+        }
+
+        .result-breakdown {
+            background: var(--secondary-bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .breakdown-item {
+            padding: 12px;
+            border-bottom: 1px solid var(--bg-color);
+        }
+
+        .breakdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .breakdown-question {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .breakdown-answer {
+            font-size: 14px;
+            color: var(--hint-color);
+        }
+
+        .breakdown-answer.correct {
+            color: #2ed573;
+        }
+
+        .breakdown-answer.wrong {
+            color: #ff4757;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--hint-color);
+        }
+
+        .error-message {
+            background: #ff4757;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .hint-text {
+            font-size: 13px;
+            color: var(--hint-color);
+            text-align: center;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Экран выбора теста -->
+        <div id="testSelectorScreen">
+            <div class="header">
+                <h1>✍️ Вставка букв</h1>
+                <p>Выберите тест для прохождения</p>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+
+            <div class="test-selector">
+                <h3>📚 Доступные тесты</h3>
+                <div class="test-list" id="testList">
+                    <div class="loading">Загрузка тестов...</div>
+                </div>
+            </div>
+
+            <button class="action-btn" id="startTestBtn" onclick="startSelectedTest()" disabled>
+                🚀 Начать тест
+            </button>
+        </div>
+
+        <!-- Экран прохождения теста -->
+        <div id="gameScreen" class="game-screen">
+            <div class="header">
+                <h1 id="testTitle">Название теста</h1>
+                <p id="testDescription">Описание</p>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+
+            <div id="questionsContainer"></div>
+
+            <div class="letters-panel" id="lettersPanel"></div>
+
+            <button class="action-btn" id="checkAnswersBtn" onclick="checkAnswers()" disabled>
+                ✅ Проверить ответы
+            </button>
+
+            <p class="hint-text">Нажмите на пропуск, затем выберите букву</p>
+        </div>
+
+        <!-- Экран результатов -->
+        <div id="resultScreen" class="result-screen">
+            <div class="result-icon" id="resultIcon">🎉</div>
+            <div class="result-title" id="resultTitle">Отлично!</div>
+            <div class="result-score" id="resultScore">8/10</div>
+            <div class="result-details" id="resultDetails">80% правильных ответов</div>
+
+            <div class="result-breakdown" id="resultBreakdown"></div>
+
+            <button class="action-btn" onclick="sendResults()">
+                📤 Отправить результат
+            </button>
+            <button class="action-btn secondary" onclick="restartTest()">
+                🔄 Пройти ещё раз
+            </button>
+            <button class="action-btn secondary" onclick="backToTestList()">
+                📚 К списку тестов
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Состояние приложения
+        let state = {
+            tests: [],
+            selectedTestId: null,
+            currentTest: null,
+            currentQuestionIndex: 0,
+            userAnswers: {},
+            gaps: [],
+            selectedGap: null,
+            results: []
+        };
+
+        // Загрузка тестов
+        async function loadTests() {
+            try {
+                // Получаем тесты из initData или через API
+                const initData = tg.initDataUnsafe;
+                
+                // Если есть данные из URL (для тестирования)
+                const urlParams = new URLSearchParams(window.location.search);
+                const testData = urlParams.get('test_data');
+                
+                if (testData) {
+                    const parsed = JSON.parse(decodeURIComponent(testData));
+                    state.tests = parsed.tests || [];
+                } else {
+                    // Запрашиваем тесты через бота
+                    // В реальном Mini App тесты приходят через sendData
+                    state.tests = await fetchTestsFromBot();
+                }
+
+                renderTestList();
+            } catch (error) {
+                showError('Ошибка загрузки тестов: ' + error.message);
+            }
+        }
+
+        // Получение тестов от бота (через WebApp API)
+        function fetchTestsFromBot() {
+            return new Promise((resolve) => {
+                // Отправляем запрос боту
+                tg.sendData(JSON.stringify({ action: 'get_insert_tests' }));
+                
+                // Для демонстрации используем тестовые данные
+                setTimeout(() => {
+                    resolve(getDemoTests());
+                }, 500);
+            });
+        }
+
+        // Демонстрационные тесты
+        function getDemoTests() {
+            return [
+                {
+                    test_id: 'insert_1',
+                    title: 'Правописание -Н- и -НН-',
+                    description: 'Вставьте пропущенные буквы в слова',
+                    questions: [
+                        {
+                            text: 'В комнате стоял див..н, который был украше.. узором.',
+                            gaps: [
+                                { position: 0, correct: 'а' },
+                                { position: 1, correct: 'н' }
+                            ],
+                            letters: ['а', 'о', 'н', 'е']
+                        },
+                        {
+                            text: 'Краше..ая корзина была поставле..а на стол.',
+                            gaps: [
+                                { position: 0, correct: 'нн' },
+                                { position: 1, correct: 'а' }
+                            ],
+                            letters: ['н', 'нн', 'а', 'о']
+                        }
+                    ]
+                },
+                {
+                    test_id: 'insert_2',
+                    title: 'Безударные гласные',
+                    description: 'Вставьте безударные гласные в корнях слов',
+                    questions: [
+                        {
+                            text: 'М..чта озаряла к..мнату тёплым светом.',
+                            gaps: [
+                                { position: 0, correct: 'е' },
+                                { position: 1, correct: 'о' }
+                            ],
+                            letters: ['е', 'и', 'о', 'а']
+                        }
+                    ]
+                }
+            ];
+        }
+
+        // Отрисовка списка тестов
+        function renderTestList() {
+            const container = document.getElementById('testList');
+            
+            if (state.tests.length === 0) {
+                container.innerHTML = '<div class="loading">Нет доступных тестов</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            state.tests.forEach(test => {
+                const div = document.createElement('div');
+                div.className = 'test-item';
+                div.dataset.testId = test.test_id;
+                div.onclick = () => selectTest(test.test_id);
+                
+                const questionCount = test.questions?.length || 0;
+                div.innerHTML = `
+                    <div class="test-item-title">${escapeHtml(test.title)}</div>
+                    <div class="test-item-info">${escapeHtml(test.description)} · ${questionCount} вопрос${getQuestionEnding(questionCount)}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Выбор теста
+        function selectTest(testId) {
+            state.selectedTestId = testId;
+            
+            document.querySelectorAll('.test-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.testId === testId);
+            });
+            
+            document.getElementById('startTestBtn').disabled = false;
+        }
+
+        // Начало теста
+        function startSelectedTest() {
+            if (!state.selectedTestId) return;
+            
+            const test = state.tests.find(t => t.test_id === state.selectedTestId);
+            if (!test) return;
+
+            state.currentTest = test;
+            state.currentQuestionIndex = 0;
+            state.userAnswers = {};
+            state.results = [];
+
+            document.getElementById('testSelectorScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'block';
+            document.getElementById('testTitle').textContent = test.title;
+            document.getElementById('testDescription').textContent = test.description;
+
+            renderCurrentQuestion();
+            renderLettersPanel();
+            updateProgress();
+        }
+
+        // Отрисовка текущего вопроса
+        function renderCurrentQuestion() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+
+            if (!state.currentTest || !state.currentTest.questions) return;
+
+            const question = state.currentTest.questions[state.currentQuestionIndex];
+            const questionNum = state.currentQuestionIndex + 1;
+            const totalQuestions = state.currentTest.questions.length;
+
+            const card = document.createElement('div');
+            card.className = 'question-card';
+
+            const header = document.createElement('div');
+            header.className = 'question-header';
+            header.innerHTML = `
+                <div class="question-number">Вопрос ${questionNum} из ${totalQuestions}</div>
+            `;
+            card.appendChild(header);
+
+            const textDiv = document.createElement('div');
+            textDiv.className = 'question-text';
+
+            // Разбиваем текст на части с пропусками
+            let lastIndex = 0;
+            state.gaps = [];
+
+            // Находим все пропуски (формат: .. или ___)
+            const gapRegex = /\.\.|___/g;
+            let match;
+            let gapIndex = 0;
+
+            while ((match = gapRegex.exec(question.text)) !== null) {
+                // Текст до пропуска
+                if (match.index > lastIndex) {
+                    textDiv.appendChild(document.createTextNode(
+                        question.text.substring(lastIndex, match.index)
+                    ));
+                }
+
+                // Пропуск
+                const gapSpan = document.createElement('span');
+                gapSpan.className = 'letter-gap';
+                gapSpan.dataset.gapIndex = gapIndex;
+                gapSpan.textContent = '_';
+                gapSpan.onclick = () => selectGap(gapIndex, gapSpan);
+                textDiv.appendChild(gapSpan);
+
+                state.gaps.push({
+                    index: gapIndex,
+                    correct: question.gaps[gapIndex]?.correct || '',
+                    element: gapSpan
+                });
+
+                lastIndex = match.index + match[0].length;
+                gapIndex++;
+            }
+
+            // Оставшийся текст
+            if (lastIndex < question.text.length) {
+                textDiv.appendChild(document.createTextNode(
+                    question.text.substring(lastIndex)
+                ));
+            }
+
+            card.appendChild(textDiv);
+            container.appendChild(card);
+
+            // Сбрасываем выбор
+            state.selectedGap = null;
+        }
+
+        // Выбор пропуска
+        function selectGap(gapIndex, element) {
+            // Снимаем выделение
+            document.querySelectorAll('.letter-gap.active').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Выделяем новый
+            element.classList.add('active');
+            state.selectedGap = { index: gapIndex, element };
+
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        // Отрисовка панели букв
+        function renderLettersPanel() {
+            const panel = document.getElementById('lettersPanel');
+            panel.innerHTML = '';
+
+            if (!state.currentTest || !state.currentTest.questions) return;
+
+            const question = state.currentTest.questions[state.currentQuestionIndex];
+            const allLetters = new Set(question.letters || []);
+
+            Array.from(allLetters).sort().forEach(letter => {
+                const btn = document.createElement('button');
+                btn.className = 'letter-btn';
+                btn.textContent = letter;
+                btn.onclick = () => selectLetter(letter, btn);
+                panel.appendChild(btn);
+            });
+        }
+
+        // Выбор буквы
+        function selectLetter(letter, btnElement) {
+            if (!state.selectedGap) {
+                // Анимация ошибки
+                btnElement.style.animation = 'shake 0.3s';
+                setTimeout(() => btnElement.style.animation = '', 300);
+                return;
+            }
+
+            const { index, element } = state.selectedGap;
+            element.textContent = letter;
+            element.classList.add('filled');
+
+            // Сохраняем ответ
+            const questionKey = `${state.currentQuestionIndex}`;
+            if (!state.userAnswers[questionKey]) {
+                state.userAnswers[questionKey] = {};
+            }
+            state.userAnswers[questionKey][index] = letter;
+
+            // Снимаем выделение
+            element.classList.remove('active');
+            state.selectedGap = null;
+
+            // Обновляем прогресс
+            updateProgress();
+
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        // Обновление прогресса
+        function updateProgress() {
+            if (!state.currentTest || !state.currentTest.questions) return;
+
+            const question = state.currentTest.questions[state.currentQuestionIndex];
+            const totalGaps = question.gaps.length;
+            const questionKey = `${state.currentQuestionIndex}`;
+            const filledCount = Object.keys(state.userAnswers[questionKey] || {}).length;
+
+            const progress = (filledCount / totalGaps) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+
+            // Активируем кнопку проверки
+            document.getElementById('checkAnswersBtn').disabled = filledCount < totalGaps;
+        }
+
+        // Проверка ответов
+        function checkAnswers() {
+            if (!state.currentTest) return;
+
+            const question = state.currentTest.questions[state.currentQuestionIndex];
+            const questionKey = `${state.currentQuestionIndex}`;
+            const answers = state.userAnswers[questionKey] || {};
+
+            let correctCount = 0;
+            const questionResults = [];
+
+            state.gaps.forEach(gap => {
+                const userAnswer = answers[gap.index] || '';
+                const isCorrect = userAnswer === gap.correct;
+
+                if (isCorrect) {
+                    gap.element.classList.add('correct');
+                    correctCount++;
+                } else {
+                    gap.element.classList.add('wrong');
+                    // Показываем правильный ответ
+                    setTimeout(() => {
+                        gap.element.textContent = gap.correct;
+                        gap.element.classList.add('correct');
+                    }, 800);
+                }
+
+                questionResults.push({
+                    gap: gap.index,
+                    userAnswer,
+                    correctAnswer: gap.correct,
+                    isCorrect
+                });
+            });
+
+            state.results.push({
+                questionIndex: state.currentQuestionIndex,
+                questionText: question.text,
+                results: questionResults,
+                correct: correctCount,
+                total: state.gaps.length
+            });
+
+            // Тактильная отдача
+            const allCorrect = correctCount === state.gaps.length;
+            tg.HapticFeedback.notificationOccurred(allCorrect ? 'success' : 'error');
+
+            // Переход к следующему вопросу или показ результатов
+            setTimeout(() => {
+                if (state.currentQuestionIndex < state.currentTest.questions.length - 1) {
+                    state.currentQuestionIndex++;
+                    renderCurrentQuestion();
+                    renderLettersPanel();
+                    updateProgress();
+                } else {
+                    showResults();
+                }
+            }, 1000);
+        }
+
+        // Показ результатов
+        function showResults() {
+            const totalCorrect = state.results.reduce((sum, r) => sum + r.correct, 0);
+            const totalGaps = state.results.reduce((sum, r) => sum + r.total, 0);
+            const percentage = totalGaps > 0 ? Math.round((totalCorrect / totalGaps) * 100) : 0;
+
+            document.getElementById('gameScreen').style.display = 'none';
+            document.getElementById('resultScreen').style.display = 'block';
+
+            // Иконка и заголовок
+            const icon = document.getElementById('resultIcon');
+            const title = document.getElementById('resultTitle');
+
+            if (percentage >= 80) {
+                icon.textContent = '🏆';
+                title.textContent = 'Отлично!';
+            } else if (percentage >= 60) {
+                icon.textContent = '👍';
+                title.textContent = 'Хорошо!';
+            } else if (percentage >= 40) {
+                icon.textContent = '📚';
+                title.textContent = 'Можно лучше';
+            } else {
+                icon.textContent = '💪';
+                title.textContent = 'Попробуйте ещё';
+            }
+
+            document.getElementById('resultScore').textContent = `${totalCorrect}/${totalGaps}`;
+            document.getElementById('resultDetails').textContent = `${percentage}% правильных ответов`;
+
+            // Детализация ответов
+            const breakdown = document.getElementById('resultBreakdown');
+            breakdown.innerHTML = '<h3 style="margin-bottom: 12px;">📊 Детализация</h3>';
+
+            state.results.forEach((result, idx) => {
+                const item = document.createElement('div');
+                item.className = 'breakdown-item';
+
+                const questionText = result.questionText.replace(/\.\.|___/g, '___');
+                const correctText = result.correct === result.total ? '✅' : '❌';
+                
+                item.innerHTML = `
+                    <div class="breakdown-question">${idx + 1}. ${escapeHtml(questionText)} ${correctText}</div>
+                    <div class="breakdown-answer ${result.correct === result.total ? 'correct' : 'wrong'}">
+                        Правильно: ${result.correct} из ${result.total}
+                    </div>
+                `;
+                breakdown.appendChild(item);
+            });
+
+            // Сохраняем результат для отправки
+            window.finalResult = {
+                test_id: state.currentTest.test_id,
+                score: totalCorrect,
+                total: totalGaps,
+                percentage,
+                answers: state.userAnswers
+            };
+        }
+
+        // Отправка результатов
+        function sendResults() {
+            if (!window.finalResult) return;
+
+            const resultData = {
+                action: 'submit_insert_test',
+                ...window.finalResult,
+                user_id: tg.initDataUnsafe?.user?.id
+            };
+
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify(resultData));
+
+            // Закрываем Mini App
+            setTimeout(() => tg.close(), 500);
+        }
+
+        // Перезапуск теста
+        function restartTest() {
+            state.currentQuestionIndex = 0;
+            state.userAnswers = {};
+            state.results = [];
+            state.selectedGap = null;
+
+            document.getElementById('resultScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'block';
+
+            renderCurrentQuestion();
+            renderLettersPanel();
+            updateProgress();
+        }
+
+        // Возврат к списку тестов
+        function backToTestList() {
+            state.selectedTestId = null;
+            state.currentTest = null;
+            state.currentQuestionIndex = 0;
+            state.userAnswers = {};
+            state.results = [];
+
+            document.getElementById('resultScreen').style.display = 'none';
+            document.getElementById('testSelectorScreen').style.display = 'block';
+
+            renderTestList();
+        }
+
+        // Показ ошибки
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Окончание для слова "вопрос"
+        function getQuestionEnding(count) {
+            const lastDigit = count % 10;
+            const lastTwoDigits = count % 100;
+            
+            if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return 'ов';
+            if (lastDigit === 1) return '';
+            if (lastDigit >= 2 && lastDigit <= 4) return 'а';
+            return 'ов';
+        }
+
+        // CSS анимация тряски
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Инициализация
+        loadTests();
+    </script>
+</body>
+</html>

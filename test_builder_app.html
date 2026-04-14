@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Создание теста на вставку букв</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #000000);
+            --hint-color: var(--tg-theme-hint-color, #888888);
+            --button-color: var(--tg-theme-button-color, #3390ec);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f2f5);
+            --success-color: #2ed573;
+            --danger-color: #ff4757;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .section {
+            background: var(--secondary-bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input[type="text"],
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--button-color);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--hint-color);
+            margin-top: 6px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--button-color);
+            color: var(--button-text-color);
+            width: 100%;
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-bg);
+            color: var(--text-color);
+        }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .question-card {
+            background: var(--bg-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--button-color);
+            position: relative;
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .question-number {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .question-text-preview {
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: var(--secondary-bg);
+            border-radius: 8px;
+        }
+
+        .gap-indicator {
+            display: inline-block;
+            min-width: 30px;
+            height: 30px;
+            border: 2px solid var(--button-color);
+            border-radius: 6px;
+            text-align: center;
+            line-height: 26px;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 2px;
+            background: var(--secondary-bg);
+        }
+
+        .gap-indicator.filled {
+            background: var(--success-color);
+            border-color: var(--success-color);
+            color: white;
+        }
+
+        .gaps-config {
+            background: var(--secondary-bg);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .gap-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .gap-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .gap-label {
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 60px;
+        }
+
+        .gap-input {
+            flex: 1;
+            padding: 8px;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .gap-input:focus {
+            outline: none;
+            border-color: var(--button-color);
+        }
+
+        .letters-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .letter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-color);
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .letter-chip button {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-letter-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border: 2px dashed var(--hint-color);
+            border-radius: 20px;
+            background: none;
+            color: var(--hint-color);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .add-letter-btn:hover {
+            border-color: var(--button-color);
+            color: var(--button-color);
+        }
+
+        .questions-list {
+            margin-bottom: 16px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-item {
+            flex: 1;
+            background: var(--bg-color);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--button-color);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--hint-color);
+            margin-top: 4px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .actions .btn {
+            flex: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-color);
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--hint-color);
+        }
+
+        .preview-text {
+            font-size: 16px;
+            line-height: 1.8;
+            padding: 16px;
+            background: var(--secondary-bg);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 16px;
+            right: 16px;
+            background: var(--success-color);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .notification.error {
+            background: var(--danger-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--hint-color);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .empty-state-hint {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✍️ Создание теста</h1>
+            <p>Создайте тест на вставку букв</p>
+        </div>
+
+        <!-- Основная информация -->
+        <div class="section">
+            <div class="section-title">📋 Информация о тесте</div>
+            <div class="form-group">
+                <label for="testTitle">Название теста *</label>
+                <input type="text" id="testTitle" placeholder="Например: Правописание -Н- и -НН-">
+            </div>
+            <div class="form-group">
+                <label for="testDescription">Описание</label>
+                <textarea id="testDescription" placeholder="Краткое описание теста..." rows="2"></textarea>
+            </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="questionsCount">0</div>
+                <div class="stat-label">Вопросов</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="gapsCount">0</div>
+                <div class="stat-label">Пропусков</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="lettersCount">0</div>
+                <div class="stat-label">Букв</div>
+            </div>
+        </div>
+
+        <!-- Список вопросов -->
+        <div class="section">
+            <div class="section-title">
+                📝 Вопросы
+                <button class="btn btn-secondary btn-small" onclick="showAddQuestionModal()" style="margin-left: auto;">
+                    ➕ Добавить
+                </button>
+            </div>
+            <div id="questionsList" class="questions-list">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📝</div>
+                    <div class="empty-state-text">Пока нет вопросов</div>
+                    <div class="empty-state-hint">Нажмите "Добав" чтобы создать первый вопрос</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Действия -->
+        <div class="actions">
+            <button class="btn btn-success" onclick="saveTest()">
+                💾 Сохранить
+            </button>
+            <button class="btn btn-secondary" onclick="previewTest()">
+                👁️ Просмотр
+            </button>
+        </div>
+
+        <button class="btn btn-primary" onclick="sendToBot()">
+            📤 Отправить в бот
+        </button>
+    </div>
+
+    <!-- Модальное окно добавления вопроса -->
+    <div class="modal" id="addQuestionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">➕ Новый вопрос</div>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+
+            <div class="form-group">
+                <label for="questionText">Текст с пропусками *</label>
+                <textarea id="questionText" placeholder="Введите текст, используя .. для обозначения пропуска&#10;&#10;Пример: В комнате стоял див..н, который был украше.. узором." rows="4"></textarea>
+                <div class="hint">Используйте .. для обозначения пропуска букв</div>
+            </div>
+
+            <div id="gapsConfig" style="display: none;">
+                <div class="section-title">⚙️ Настройка пропусков</div>
+                <div class="preview-text" id="previewText"></div>
+                <div class="gaps-config" id="gapsConfigContainer"></div>
+            </div>
+
+            <div class="form-group" style="margin-top: 16px;">
+                <label>Варианты букв для выбора *</label>
+                <div class="letters-container" id="lettersContainer">
+                    <button class="add-letter-btn" onclick="addLetter()">+ Буква</button>
+                </div>
+                <div class="hint">Добавьте минимум 2 варианта букв</div>
+            </div>
+
+            <button class="btn btn-primary" onclick="addQuestion()" style="margin-top: 16px;">
+                ✅ Добавить вопрос
+            </button>
+        </div>
+    </div>
+
+    <!-- Уведомление -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Состояние
+        let state = {
+            title: '',
+            description: '',
+            questions: [],
+            currentLetters: []
+        };
+
+        // Инициализация
+        function init() {
+            // Проверяем, является ли пользователь админом
+            const user = tg.initDataUnsafe?.user;
+            if (!user) {
+                showNotification('Ошибка авторизации', true);
+                return;
+            }
+
+            // Загружаем данные из URL если есть
+            const urlParams = new URLSearchParams(window.location.search);
+            const editData = urlParams.get('edit_data');
+            if (editData) {
+                try {
+                    const data = JSON.parse(decodeURIComponent(editData));
+                    if (data.test) {
+                        loadTestForEdit(data.test);
+                    }
+                } catch (e) {
+                    console.error('Error parsing edit data:', e);
+                }
+            }
+        }
+
+        // Загрузка теста для редактирования
+        function loadTestForEdit(test) {
+            state.title = test.title || '';
+            state.description = test.description || '';
+            state.questions = test.questions || [];
+
+            document.getElementById('testTitle').value = state.title;
+            document.getElementById('testDescription').value = state.description;
+
+            renderQuestionsList();
+            updateStats();
+        }
+
+        // Показать модальное окно добавления вопроса
+        function showAddQuestionModal() {
+            document.getElementById('addQuestionModal').classList.add('active');
+            document.getElementById('questionText').value = '';
+            document.getElementById('gapsConfig').style.display = 'none';
+            document.getElementById('gapsConfigContainer').innerHTML = '';
+            document.getElementById('previewText').innerHTML = '';
+            state.currentLetters = [];
+            renderLetters();
+        }
+
+        // Закрыть модальное окно
+        function closeModal() {
+            document.getElementById('addQuestionModal').classList.remove('active');
+        }
+
+        // Обработка ввода текста вопроса
+        document.getElementById('questionText').addEventListener('input', function() {
+            const text = this.value;
+            const gaps = text.match(/\.\./g);
+            const gapCount = gaps ? gaps.length : 0;
+
+            if (gapCount > 0) {
+                document.getElementById('gapsConfig').style.display = 'block';
+                
+                // Создаём превью
+                let previewHtml = escapeHtml(text).replace(/\.\./g, '<span class="gap-indicator">_</span>');
+                document.getElementById('previewText').innerHTML = previewHtml;
+
+                // Создаём конфигурацию пропусков
+                const container = document.getElementById('gapsConfigContainer');
+                container.innerHTML = '';
+
+                for (let i = 0; i < gapCount; i++) {
+                    const row = document.createElement('div');
+                    row.className = 'gap-row';
+                    row.innerHTML = `
+                        <div class="gap-label">Пропуск ${i + 1}:</div>
+                        <input type="text" class="gap-input" data-gap-index="${i}" maxlength="2" placeholder="Правильная буква">
+                    `;
+                    container.appendChild(row);
+                }
+            } else {
+                document.getElementById('gapsConfig').style.display = 'none';
+            }
+        });
+
+        // Добавить букву
+        function addLetter() {
+            state.currentLetters.push('');
+            renderLetters();
+        }
+
+        // Удалить букву
+        function removeLetter(index) {
+            state.currentLetters.splice(index, 1);
+            renderLetters();
+        }
+
+        // Обновить букву
+        function updateLetter(index, value) {
+            state.currentLetters[index] = value;
+        }
+
+        // Отрисовка букв
+        function renderLetters() {
+            const container = document.getElementById('lettersContainer');
+            container.innerHTML = '';
+
+            state.currentLetters.forEach((letter, index) => {
+                const chip = document.createElement('div');
+                chip.className = 'letter-chip';
+                chip.innerHTML = `
+                    <input type="text" 
+                           value="${escapeHtml(letter)}" 
+                           maxlength="2" 
+                           style="width: 40px; border: none; background: transparent; font-size: 14px; text-align: center;"
+                           oninput="updateLetter(${index}, this.value)">
+                    <button onclick="removeLetter(${index})">×</button>
+                `;
+                container.appendChild(chip);
+            });
+
+            // Кнопка добавления
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-letter-btn';
+            addBtn.textContent = '+ Буква';
+            addBtn.onclick = addLetter;
+            container.appendChild(addBtn);
+        }
+
+        // Добавить вопрос
+        function addQuestion() {
+            const text = document.getElementById('questionText').value.trim();
+            
+            if (!text) {
+                showNotification('Введите текст вопроса', true);
+                return;
+            }
+
+            // Получаем правильные ответы
+            const gapInputs = document.querySelectorAll('.gap-input');
+            const gaps = [];
+            let hasEmptyGaps = false;
+
+            gapInputs.forEach((input, index) => {
+                const correct = input.value.trim().toLowerCase();
+                if (!correct) {
+                    hasEmptyGaps = true;
+                }
+                gaps.push({
+                    position: index,
+                    correct: correct
+                });
+            });
+
+            if (hasEmptyGaps) {
+                showNotification('Заполните все правильные буквы', true);
+                return;
+            }
+
+            // Получаем варианты букв
+            const letters = state.currentLetters.filter(l => l.trim());
+            if (letters.length < 2) {
+                showNotification('Добавьте минимум 2 варианта букв', true);
+                return;
+            }
+
+            // Добавляем вопрос
+            state.questions.push({
+                type: 'insert_letter',
+                text: text,
+                gaps: gaps,
+                letters: letters,
+                description: 'Вставьте пропущенные буквы'
+            });
+
+            // Закрываем модалку и обновляем UI
+            closeModal();
+            renderQuestionsList();
+            updateStats();
+            showNotification('Вопрос добавлен');
+        }
+
+        // Удалить вопрос
+        function removeQuestion(index) {
+            if (confirm('Удалить этот вопрос?')) {
+                state.questions.splice(index, 1);
+                renderQuestionsList();
+                updateStats();
+                showNotification('Вопрос удалён');
+            }
+        }
+
+        // Отрисовка списка вопросов
+        function renderQuestionsList() {
+            const container = document.getElementById('questionsList');
+
+            if (state.questions.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📝</div>
+                        <div class="empty-state-text">Пока нет вопросов</div>
+                        <div class="empty-state-hint">Нажмите "Добав" чтобы создать первый вопрос</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            state.questions.forEach((q, index) => {
+                const card = document.createElement('div');
+                card.className = 'question-card';
+
+                // Создаём превью с заполненными пропусками
+                let previewHtml = escapeHtml(q.text);
+                q.gaps.forEach(gap => {
+                    const isFilled = gap.correct;
+                    previewHtml = previewHtml.replace(
+                        '..',
+                        `<span class="gap-indicator ${isFilled ? 'filled' : ''}">${isFilled ? gap.correct : '_'}</span>`
+                    );
+                });
+
+                card.innerHTML = `
+                    <div class="question-header">
+                        <div class="question-number">Вопрос ${index + 1}</div>
+                        <button class="btn btn-danger btn-small" onclick="removeQuestion(${index})">✕</button>
+                    </div>
+                    <div class="question-text-preview">${previewHtml}</div>
+                    <div style="font-size: 12px; color: var(--hint-color);">
+                        Варианты: ${q.letters.join(', ')}
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // Обновление статистики
+        function updateStats() {
+            document.getElementById('questionsCount').textContent = state.questions.length;
+            
+            const totalGaps = state.questions.reduce((sum, q) => sum + q.gaps.length, 0);
+            document.getElementById('gapsCount').textContent = totalGaps;
+
+            const uniqueLetters = new Set(state.questions.flatMap(q => q.letters));
+            document.getElementById('lettersCount').textContent = uniqueLetters.size;
+        }
+
+        // Сохранить тест
+        function saveTest() {
+            const title = document.getElementById('testTitle').value.trim();
+            const description = document.getElementById('testDescription').value.trim();
+
+            if (!title) {
+                showNotification('Введите название теста', true);
+                return;
+            }
+
+            if (state.questions.length === 0) {
+                showNotification('Добавьте хотя бы один вопрос', true);
+                return;
+            }
+
+            state.title = title;
+            state.description = description;
+
+            showNotification('Тест сохранён');
+        }
+
+        // Предпросмотр теста
+        function previewTest() {
+            const title = document.getElementById('testTitle').value.trim();
+            const description = document.getElementById('testDescription').value.trim();
+
+            if (!title) {
+                showNotification('Введите название теста', true);
+                return;
+            }
+
+            if (state.questions.length === 0) {
+                showNotification('Добавьте хотя бы один вопрос', true);
+                return;
+            }
+
+            // Открываем предпросмотр в новом окне
+            const testData = {
+                tests: [{
+                    test_id: 'preview',
+                    title: title,
+                    description: description || 'Без описания',
+                    questions: state.questions
+                }]
+            };
+
+            const encodedData = encodeURIComponent(JSON.stringify(testData));
+            const previewUrl = `insert_test_app.html?test_data=${encodedData}`;
+            window.open(previewUrl, '_blank');
+        }
+
+        // Отправить в бот
+        function sendToBot() {
+            const title = document.getElementById('testTitle').value.trim();
+            const description = document.getElementById('testDescription').value.trim();
+
+            if (!title) {
+                showNotification('Введите название теста', true);
+                return;
+            }
+
+            if (state.questions.length === 0) {
+                showNotification('Добавьте хотя бы один вопрос', true);
+                return;
+            }
+
+            const testData = {
+                action: 'create_insert_test',
+                title: title,
+                description: description || 'Без описания',
+                active: true,
+                questions: state.questions
+            };
+
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify(testData));
+
+            // Закрываем Mini App
+            setTimeout(() => {
+                tg.close();
+            }, 500);
+        }
+
+        // Показать уведомление
+        function showNotification(message, isError = false) {
+            const notif = document.getElementById('notification');
+            notif.textContent = message;
+            notif.classList.toggle('error', isError);
+            notif.classList.add('show');
+
+            tg.HapticFeedback.notificationOccurred(isError ? 'error' : 'success');
+
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 3000);
+        }
+
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Инициализация
+        init();
+    </script>
+</body>
+</html>

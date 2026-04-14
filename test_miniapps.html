@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Mini Apps - Вставка букв</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        .card p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e4e6eb;
+        }
+
+        .code {
+            background: #1e272e;
+            color: #2ed573;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin: 16px 0;
+        }
+
+        .feature-list li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #666;
+        }
+
+        .feature-list li:before {
+            content: '✅';
+            position: absolute;
+            left: 0;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+
+        .warning strong {
+            color: #856404;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+
+        .success strong {
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✍️ Вставка букв - Mini Apps</h1>
+            <p>Тестирование и демонстрация Telegram Mini Apps</p>
+        </div>
+
+        <div class="card">
+            <h2>📱 Доступные Mini Apps</h2>
+            <p>Выберите Mini App для тестирования:</p>
+            
+            <a href="insert_test_app.html" class="btn" target="_blank">🚀 Insert Test App</a>
+            <a href="test_builder_app.html" class="btn" target="_blank">🛠️ Test Builder App</a>
+        </div>
+
+        <div class="card">
+            <h2>🎯 Insert Test App</h2>
+            <p>Приложение для прохождения тестов на вставку букв.</p>
+            
+            <ul class="feature-list">
+                <li>Список доступных тестов</li>
+                <li>Интерактивный интерфейс с пропусками</li>
+                <li>Панель с буквами для выбора</li>
+                <li>Мгновенная проверка ответов</li>
+                <li>Экран результатов с детализацией</li>
+                <li>Отправка результатов боту</li>
+            </ul>
+
+            <p><strong>Команда бота:</strong> <code>/insert_test</code></p>
+        </div>
+
+        <div class="card">
+            <h2>🛠️ Test Builder App</h2>
+            <p>Приложение для создания тестов на вставку букв (только для администраторов).</p>
+            
+            <ul class="feature-list">
+                <li>Создание названия и описания теста</li>
+                <li>Добавление неограниченного количества вопросов</li>
+                <li>Автоматическое обнаружение пропусков</li>
+                <li>Настройка правильных букв</li>
+                <li>Добавление вариантов букв</li>
+                <li>Предпросмотр перед отправкой</li>
+                <li>Отправка в бот одним кликом</li>
+            </ul>
+
+            <p><strong>Команда бота:</strong> <code>/insert_builder</code></p>
+        </div>
+
+        <div class="card">
+            <h2>🔧 Тестирование с демо-данными</h2>
+            <p>Откройте Insert Test App с предзаполненными тестами:</p>
+            
+            <button class="btn" onclick="openTestWithDemo()">📝 Открыть с демо-данными</button>
+        </div>
+
+        <div class="card">
+            <h2>📋 Команды бота</h2>
+            <p>Полный список команд для работы с Mini Apps:</p>
+            
+            <div class="code">
+/insert_test        - Запустить тест на вставку букв (новый)<br>
+/insert_builder     - Создать тест на вставку букв (админ)<br>
+/insert             - Старый интерфейс вставки<br>
+/edit_test          - Старый редактор тестов<br>
+/help               - Справка по всем командам
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>⚙️ Настройка для Telegram</h2>
+            <p>Для работы в Telegram Mini Apps необходимо:</p>
+            
+            <div class="warning">
+                <strong>Важно:</strong> Загрузите HTML файлы на HTTPS хостинг (GitHub Pages, Vercel, Netlify) и обновите URL в main.py
+            </div>
+
+            <div class="code">
+# В main.py, команда /insert_test:<br>
+app_url = "https://your-domain.com/insert_test_app.html"<br><br>
+
+# В main.py, команда /insert_builder:<br>
+app_url = "https://your-domain.com/test_builder_app.html"
+            </div>
+
+            <div class="success">
+                <strong>Готово!</strong> После развёртывания пользователи смогут проходить тесты прямо в Telegram.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openTestWithDemo() {
+            const testData = {
+                tests: [
+                    {
+                        test_id: 'demo_1',
+                        title: 'Правописание -Н- и -НН-',
+                        description: 'Вставьте пропущенные буквы в слова',
+                        questions: [
+                            {
+                                text: 'В комнате стоял див..н, который был украше.. узором.',
+                                gaps: [
+                                    { position: 0, correct: 'а' },
+                                    { position: 1, correct: 'н' }
+                                ],
+                                letters: ['а', 'о', 'н', 'е']
+                            },
+                            {
+                                text: 'Краше..ая корзина была поставле..а на стол.',
+                                gaps: [
+                                    { position: 0, correct: 'нн' },
+                                    { position: 1, correct: 'а' }
+                                ],
+                                letters: ['н', 'нн', 'а', 'о']
+                            }
+                        ]
+                    },
+                    {
+                        test_id: 'demo_2',
+                        title: 'Безударные гласные',
+                        description: 'Вставьте безударные гласные в корнях слов',
+                        questions: [
+                            {
+                                text: 'М..чта озаряла к..мнату тёплым светом.',
+                                gaps: [
+                                    { position: 0, correct: 'е' },
+                                    { position: 1, correct: 'о' }
+                                ],
+                                letters: ['е', 'и', 'о', 'а']
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            const encodedData = encodeURIComponent(JSON.stringify(testData));
+            const url = `insert_test_app.html?test_data=${encodedData}`;
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>

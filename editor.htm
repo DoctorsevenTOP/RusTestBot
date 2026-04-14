@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор тестов - Русский язык</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #f5f5f5);
+            color: var(--tg-theme-text-color, #000);
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; text-align: center;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 5px; }
+        .header p { opacity: 0.9; font-size: 14px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; }
+        .tab-btn {
+            flex: 1; min-width: 100px; padding: 12px 15px; border: none;
+            background: white; border-radius: 10px; cursor: pointer;
+            font-weight: 600; transition: all 0.3s; white-space: nowrap;
+        }
+        .tab-btn.active { background: #667eea; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card {
+            background: white; border-radius: 15px; padding: 20px;
+            margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;
+        }
+        .card-title { font-size: 18px; font-weight: 600; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+        input[type="text"], textarea, select {
+            width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0;
+            border-radius: 10px; font-size: 14px; transition: border-color 0.3s;
+            background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000);
+        }
+        input:focus, textarea:focus { outline: none; border-color: #667eea; }
+        textarea { resize: vertical; min-height: 80px; }
+        .btn {
+            padding: 12px 25px; border: none; border-radius: 10px;
+            cursor: pointer; font-size: 14px; font-weight: 600;
+            transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-primary { background: #667eea; color: white; width: 100%; justify-content: center; }
+        .btn-success { background: #2ed573; color: white; }
+        .btn-danger { background: #ff4757; color: white; }
+        .btn-secondary { background: #dfe4ea; color: #333; }
+        .btn-small { padding: 8px 15px; font-size: 12px; }
+        .btn:active { transform: scale(0.98); }
+        .test-item {
+            padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px;
+            margin-bottom: 10px; cursor: pointer; transition: all 0.3s;
+        }
+        .test-item:hover { border-color: #667eea; }
+        .test-item.selected { border-color: #667eea; background: #f0f0ff; }
+        .test-item-header { display: flex; justify-content: space-between; align-items: center; }
+        .test-item-title { font-weight: 600; }
+        .test-item-info { font-size: 12px; color: #888; margin-top: 5px; }
+        .type-selector { display: flex; gap: 10px; margin-bottom: 15px; }
+        .type-btn {
+            flex: 1; padding: 10px; border: 2px solid #e0e0e0; border-radius: 10px;
+            background: white; cursor: pointer; font-weight: 600; transition: all 0.3s;
+        }
+        .type-btn.active { border-color: #667eea; background: #f0f0ff; }
+        .option-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .option-row input[type="checkbox"] { width: 20px; height: 20px; }
+        .option-row input[type="text"] { flex: 1; margin-bottom: 0; }
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-item {
+            background: white; padding: 15px; border-radius: 10px;
+            text-align: center; flex: 1; min-width: 80px;
+        }
+        .stat-value { font-size: 24px; font-weight: bold; color: #667eea; }
+        .stat-label { font-size: 12px; color: #888; }
+        .hint { font-size: 12px; color: #888; margin-top: 5px; }
+        .loading { text-align: center; padding: 40px; color: #888; }
+        .question-card {
+            background: #f8f9fa; border-radius: 15px; padding: 20px;
+            margin-bottom: 20px; border-left: 4px solid #667eea;
+        }
+        .question-card.multiple { border-left-color: #f093fb; }
+        .question-card.insert { border-left-color: #ffa502; }
+        .gap-inputs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .gap-input {
+            display: flex; align-items: center; gap: 5px;
+            background: white; padding: 8px 12px; border-radius: 8px;
+        }
+        .gap-input input { width: 40px; padding: 5px; text-align: center; }
+        .actions { display: flex; gap: 10px; margin-top: 20px; }
+        .notification {
+            position: fixed; bottom: 20px; right: 20px;
+            background: #2ed573; color: white; padding: 15px 25px;
+            border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            transform: translateY(100px); opacity: 0; transition: all 0.3s;
+        }
+        .notification.show { transform: translateY(0); opacity: 1; }
+        .notification.error { background: #ff4757; }
+        .json-output {
+            width: 100%; height: 300px; background: #1e272e; color: #2ed573;
+            border: none; border-radius: 8px; padding: 15px;
+            font-family: monospace; font-size: 12px; resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Редактор тестов</h1>
+            <p>Создавайте и редактируйте тесты для бота</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tests')">📚 Тесты</button>
+            <button class="tab-btn" onclick="switchTab('editor')">✏️ Редактор</button>
+            <button class="tab-btn" onclick="switchTab('insert')">✍️ Вставка букв</button>
+            <button class="tab-btn" onclick="switchTab('json')">📄 JSON</button>
+        </div>
+
+        <!-- Вкладка списка тестов -->
+        <div id="tests-tab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📋 Доступные тесты</div>
+                    <button class="btn btn-secondary btn-small" onclick="loadTests()">🔄 Обновить</button>
+                </div>
+                <div id="testsList"><div class="loading">Загрузка тестов...</div></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><div class="card-title">📥 Загрузить JSON</div></div>
+                <textarea id="importJson" placeholder="Вставьте JSON теста..." style="height: 150px; margin-bottom: 15px;"></textarea>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="importFromJson()">Загрузить</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('importJson').value=''">Очистить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка редактора -->
+        <div id="editor-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header"><div class="card-title">➕ Добавить вопрос</div></div>
+                <div class="stats">
+                    <div class="stat-item"><div class="stat-value" id="questionsCount">0</div><div class="stat-label">Вопросов</div></div>
+                    <div class="stat-item"><div class="stat-value" id="singleCount">0</div><div class="stat-label">Одиночных</div></div>
+                    <div class="stat-item"><div class="stat-value" id="multipleCount">0</div><div class="stat-label">Множественных</div></div>
+                    <div class="stat-item"><div class="stat-value" id="insertCount">0</div><div class="stat-label">Вставка</div></div>
+                </div>
+                <div class="form-group">
+                    <label>Название теста *</label>
+                    <input type="text" id="testTitle" placeholder="Например: Правописание -Н- и -НН-">
+                </div>
+                <div class="form-group">
+                    <label>Описание теста</label>
+                    <textarea id="testDescription" placeholder="Краткое описание..."></textarea>
+                </div>
+                <div id="questionsContainer"></div>
+                <button class="btn btn-primary" onclick="addQuestion()">➕ Добавить вопрос</button>
+                <div class="actions">
+                    <button class="btn btn-success" onclick="generateJSON()" style="flex: 1;">✅ В JSON</button>
+                    <button class="btn btn-primary" onclick="sendToBot()" style="flex: 1;">📤 В бота</button>
+                    <button class="btn btn-secondary" onclick="clearEditor()" style="flex: 1;">🗑️ Очистить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка вставки букв -->
+        <div id="insert-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header"><div class="card-title">✍️ Задание на вставку букв</div></div>
+                <div class="form-group">
+                    <label>Текст с пропусками *</label>
+                    <textarea id="insertText" placeholder="В комнате стоял див..н, который был украше.. узором." rows="4"></textarea>
+                    <p class="hint">Используйте .. для обозначения пропуска</p>
+                </div>
+                <div id="insertGapsContainer"></div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>Варианты букв *</label>
+                    <div id="insertLettersContainer"></div>
+                    <button class="btn btn-secondary btn-small" onclick="addInsertLetter()" style="margin-top: 10px;">+ Буква</button>
+                </div>
+                <button class="btn btn-primary" onclick="addInsertQuestion()" style="margin-top: 20px;">➕ Добавить в тест</button>
+            </div>
+        </div>
+
+        <!-- Вкладка JSON -->
+        <div id="json-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📄 JSON для отправки</div>
+                    <button class="btn btn-secondary btn-small" onclick="copyJSON()">📋 Копия</button>
+                </div>
+                <textarea id="jsonTextArea" class="json-output"></textarea>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="sendToBot()">📤 Отправить в бот</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification">✅ Готово!</div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        let currentTest = null;
+        let questionCounter = 0;
+        let insertLetterCount = 0;
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`${tab}-tab`).classList.add('active');
+            if (tab === 'tests') loadTests();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function loadTests() {
+            const container = document.getElementById('testsList');
+            container.innerHTML = '<div class="loading">Загрузка тестов...</div>';
+            tg.sendData(JSON.stringify({ action: 'get_tests_list' }));
+        }
+
+        function displayTests(tests) {
+            const container = document.getElementById('testsList');
+            if (!tests || tests.length === 0) {
+                container.innerHTML = '<div class="loading">Нет доступных тестов</div>';
+                return;
+            }
+            container.innerHTML = '';
+            tests.forEach(test => {
+                const div = document.createElement('div');
+                div.className = 'test-item';
+                div.onclick = () => selectTest(test);
+                div.innerHTML = `
+                    <div class="test-item-header">
+                        <div class="test-item-title">${escapeHtml(test.title)}</div>
+                        <div>${test.active ? '🟢' : '🔴'}</div>
+                    </div>
+                    <div class="test-item-info">ID: ${test.test_id} | Вопросов: ${test.questions?.length || 0}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function selectTest(test) {
+            currentTest = test;
+            document.getElementById('testTitle').value = test.title;
+            document.getElementById('testDescription').value = test.description || '';
+            document.getElementById('questionsContainer').innerHTML = '';
+            questionCounter = 0;
+            if (test.questions) {
+                test.questions.forEach(q => addQuestion(q));
+            }
+            switchTab('editor');
+            showNotification(`Тест "${test.title}" загружен`);
+        }
+
+        function addQuestion(data = null) {
+            questionCounter++;
+            const container = document.getElementById('questionsContainer');
+            const card = document.createElement('div');
+            card.className = 'question-card';
+            card.id = `question-${questionCounter}`;
+            
+            const qType = data?.type || 'single';
+            const qText = data?.text || '';
+            const qAnswer = data?.answer || '';
+            const qOptions = data?.options || [];
+            const qGaps = data?.gaps || [];
+            const qLetters = data?.letters || [];
+
+            if (qType === 'insert_letter') {
+                card.classList.add('insert');
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="card-title">✍️ Вставка букв #${questionCounter}</div>
+                        <button class="btn btn-danger btn-small" onclick="removeQuestion(${questionCounter})">✕</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Текст *</label>
+                        <textarea class="insert-text">${qText}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Правильные буквы</label>
+                        <div class="gap-inputs">
+                            ${qGaps.map((g, i) => `<div class="gap-input"><span>${i+1}:</span><input type="text" class="gap-answer" value="${g.correct}" maxlength="2"></div>`).join('')}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Варианты букв</label>
+                        <div id="letters-${questionCounter}">
+                            ${qLetters.map(l => `<div class="option-row"><input type="text" class="insert-letter" value="${l}" style="width:60px;"><button class="btn btn-danger btn-small" onclick="this.parentElement.remove()">✕</button></div>`).join('')}
+                        </div>
+                        <button class="btn btn-secondary btn-small" onclick="addInsertLetterToCard(${questionCounter})" style="margin-top:10px;">+ Буква</button>
+                    </div>
+                `;
+            } else {
+                card.classList.toggle('multiple', qType === 'multiple');
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="card-title">${qType === 'single' ? '📝' : '☑️'} Вопрос #${questionCounter}</div>
+                        <button class="btn btn-danger btn-small" onclick="removeQuestion(${questionCounter})">✕</button>
+                    </div>
+                    <div class="type-selector">
+                        <button class="type-btn ${qType === 'single' ? 'active' : ''}" onclick="setQuestionType(${questionCounter}, 'single')">📝 Одиночный</button>
+                        <button class="type-btn multiple ${qType === 'multiple' ? 'active' : ''}" onclick="setQuestionType(${questionCounter}, 'multiple')">☑️ Множественный</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Текст *</label>
+                        <textarea class="question-text">${qText}</textarea>
+                    </div>
+                    <div class="single-answer-section" style="display: ${qType === 'single' ? 'block' : 'none'};">
+                        <div class="form-group"><label>Ответ *</label><input type="text" class="question-answer" value="${qAnswer}"></div>
+                    </div>
+                    <div class="multiple-answer-section" style="display: ${qType === 'multiple' ? 'block' : 'none'};">
+                        <label>Варианты *</label>
+                        <div id="options-${questionCounter}">
+                            ${qOptions.length ? qOptions.map((opt, i) => `
+                                <div class="option-row">
+                                    <input type="checkbox" class="option-correct" ${data.answer?.includes(opt) ? 'checked' : ''}>
+                                    <input type="text" class="option-text" value="${opt}">
+                                    <button class="btn btn-danger btn-small" onclick="removeOption(this)">✕</button>
+                                </div>
+                            `).join('') : `
+                                <div class="option-row"><input type="checkbox" class="option-correct"><input type="text" class="option-text" placeholder="В1"><button class="btn btn-danger btn-small" onclick="removeOption(this)">✕</button></div>
+                                <div class="option-row"><input type="checkbox" class="option-correct"><input type="text" class="option-text" placeholder="В2"><button class="btn btn-danger btn-small" onclick="removeOption(this)">✕</button></div>
+                            `}
+                        </div>
+                        <button class="btn btn-secondary btn-small" onclick="addOption(${questionCounter})" style="margin-top:10px;">+ Вариант</button>
+                    </div>
+                `;
+            }
+            container.appendChild(card);
+            updateStats();
+        }
+
+        function setQuestionType(id, type) {
+            const card = document.getElementById(`question-${id}`);
+            card.querySelector('.single-answer-section').style.display = type === 'single' ? 'block' : 'none';
+            card.querySelector('.multiple-answer-section').style.display = type === 'single' ? 'none' : 'block';
+            card.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+            card.querySelector(`[onclick*="'${type}'"]`).classList.add('active');
+            card.classList.toggle('multiple', type === 'multiple');
+        }
+
+        function removeQuestion(id) { document.getElementById(`question-${id}`).remove(); updateStats(); }
+        function addOption(id) {
+            const container = document.getElementById(`options-${id}`);
+            container.innerHTML += '<div class="option-row"><input type="checkbox" class="option-correct"><input type="text" class="option-text" placeholder="Вариант"><button class="btn btn-danger btn-small" onclick="removeOption(this)">✕</button></div>';
+        }
+        function removeOption(btn) { if (btn.parentElement.parentElement.querySelectorAll('.option-row').length > 2) btn.parentElement.remove(); }
+
+        function updateStats() {
+            const cards = document.querySelectorAll('.question-card');
+            document.getElementById('questionsCount').textContent = cards.length;
+            document.getElementById('singleCount').textContent = cards.length - document.querySelectorAll('.question-card.multiple, .question-card.insert').length;
+            document.getElementById('multipleCount').textContent = document.querySelectorAll('.question-card.multiple').length;
+            document.getElementById('insertCount').textContent = document.querySelectorAll('.question-card.insert').length;
+        }
+
+        function generateJSON() {
+            const title = document.getElementById('testTitle').value.trim();
+            const description = document.getElementById('testDescription').value.trim();
+            if (!title) { showNotification('Введите название теста', true); return; }
+
+            const questions = [];
+            document.querySelectorAll('.question-card').forEach(card => {
+                const text = card.querySelector('.question-text, .insert-text')?.value.trim();
+                if (!text) { showNotification('Все вопросы должны содержать текст', true); throw new Error('Empty text'); }
+                
+                if (card.classList.contains('insert')) {
+                    const gaps = [], letters = [];
+                    card.querySelectorAll('.gap-answer').forEach((input, i) => { if (input.value.trim()) gaps.push({ index: i, correct: input.value.trim() }); });
+                    card.querySelectorAll('.insert-letter').forEach(input => { if (input.value.trim()) letters.push(input.value.trim()); });
+                    questions.push({ type: 'insert_letter', description: 'Вставьте буквы', text, gaps, letters });
+                } else if (card.classList.contains('multiple')) {
+                    const options = [], answers = [];
+                    card.querySelectorAll('.option-row').forEach(row => {
+                        const opt = row.querySelector('.option-text').value.trim();
+                        if (opt) { options.push(opt); if (row.querySelector('.option-correct').checked) answers.push(opt); }
+                    });
+                    questions.push({ type: 'multiple', text, options, answer: answers });
+                } else {
+                    const answer = card.querySelector('.question-answer').value.trim();
+                    questions.push({ type: 'single', text, answer });
+                }
+            });
+
+            if (questions.length === 0) { showNotification('Добавьте хотя бы один вопрос', true); return; }
+
+            const testData = {
+                action: currentTest ? 'update_test' : 'create_test',
+                ...(currentTest && { test_id: currentTest.test_id }),
+                title, description: description || 'Без описания', active: true, questions
+            };
+
+            document.getElementById('jsonTextArea').value = JSON.stringify(testData, null, 2);
+            switchTab('json');
+            showNotification('JSON сгенерирован!');
+        }
+
+        function copyJSON() {
+            const textarea = document.getElementById('jsonTextArea');
+            textarea.select();
+            document.execCommand('copy');
+            showNotification('Скопировано!');
+        }
+
+        function sendToBot() {
+            const jsonText = document.getElementById('jsonTextArea').value;
+            if (!jsonText) { showNotification('Сначала сгенерируйте JSON', true); return; }
+            try {
+                const data = JSON.parse(jsonText);
+                tg.sendData(data);
+                showNotification('Отправлено в бот!');
+                setTimeout(() => tg.close(), 1000);
+            } catch (e) { showNotification('Ошибка JSON: ' + e.message, true); }
+        }
+
+        function clearEditor() {
+            if (confirm('Очистить всё?')) {
+                currentTest = null;
+                document.getElementById('testTitle').value = '';
+                document.getElementById('testDescription').value = '';
+                document.getElementById('questionsContainer').innerHTML = '';
+                document.getElementById('jsonTextArea').value = '';
+                questionCounter = 0;
+                updateStats();
+            }
+        }
+
+        function importFromJson() {
+            const jsonText = document.getElementById('importJson').value.trim();
+            if (!jsonText) { showNotification('Вставьте JSON', true); return; }
+            try {
+                const data = JSON.parse(jsonText);
+                currentTest = null;
+                document.getElementById('testTitle').value = data.title || '';
+                document.getElementById('testDescription').value = data.description || '';
+                document.getElementById('questionsContainer').innerHTML = '';
+                questionCounter = 0;
+                if (data.questions) data.questions.forEach(q => addQuestion(q));
+                updateStats();
+                switchTab('editor');
+                showNotification('Тест загружен!');
+            } catch (e) { showNotification('Ошибка JSON: ' + e.message, true); }
+        }
+
+        // Вставка букв - обработчик ввода текста с пропусками
+        document.getElementById('insertText')?.addEventListener('input', function() {
+            const text = this.value;
+            const container = document.getElementById('insertGapsContainer');
+            container.innerHTML = '';
+            const gaps = text.match(/\.\./g);
+            if (gaps) {
+                container.innerHTML = '<label>Правильные буквы:</label><div class="gap-inputs"></div>';
+                const gapContainer = container.querySelector('.gap-inputs');
+                gaps.forEach((_, i) => {
+                    gapContainer.innerHTML += `<div class="gap-input"><span>${i+1}:</span><input type="text" class="gap-answer" data-gap="${i}" maxlength="2"></div>`;
+                });
+            }
+        });
+
+        function addInsertLetter() {
+            insertLetterCount++;
+            const container = document.getElementById('insertLettersContainer');
+            container.innerHTML += `<div class="option-row"><input type="text" class="insert-letter" placeholder="Буква" maxlength="2" style="width:60px;"><button class="btn btn-danger btn-small" onclick="this.parentElement.remove()">✕</button></div>`;
+        }
+        // Инициализация: 5 полей для букв по умолчанию
+        for (let i = 0; i < 5; i++) addInsertLetter();
+
+        function addInsertLetterToCard(id) {
+            const container = document.getElementById(`letters-${id}`);
+            container.innerHTML += '<div class="option-row"><input type="text" class="insert-letter" placeholder="Буква" maxlength="2" style="width:60px;"><button class="btn btn-danger btn-small" onclick="this.parentElement.remove()">✕</button></div>';
+        }
+
+        // 🔧 ИСПРАВЛЕННАЯ ФУНКЦИЯ - поиск только внутри вкладки #insert-tab
+        function addInsertQuestion() {
+            const text = document.getElementById('insertText').value.trim();
+            if (!text) { showNotification('Введите текст', true); return; }
+            
+            const gaps = [], letters = [];
+            
+            // 🔧 FIX: Ищем поля только внутри вкладки вставки, а не во всём документе
+            const insertTab = document.getElementById('insert-tab');
+            
+            insertTab.querySelectorAll('.gap-answer').forEach((input, i) => { 
+                if (input.value.trim()) {
+                    gaps.push({ index: i, correct: input.value.trim() }); 
+                } 
+            });
+            
+            insertTab.querySelectorAll('.insert-letter').forEach(input => { 
+                if (input.value.trim()) {
+                    letters.push(input.value.trim()); 
+                } 
+            });
+            
+            if (gaps.length === 0) { showNotification('Укажите правильные буквы', true); return; }
+            if (letters.length < 2) { showNotification('Добавьте минимум 2 варианта', true); return; }
+            
+            addQuestion({ 
+                type: 'insert_letter', 
+                description: 'Вставьте буквы', 
+                text: text.replace(/\.\./g, '___'), 
+                gaps, 
+                letters 
+            });
+            
+            // 🔧 Очистка формы и сброс состояния
+            document.getElementById('insertText').value = '';
+            document.getElementById('insertGapsContainer').innerHTML = '';
+            document.getElementById('insertLettersContainer').innerHTML = '';
+            insertLetterCount = 0; // Сброс счётчика букв
+            for (let i = 0; i < 5; i++) addInsertLetter(); // Восстановление дефолтных полей
+            
+            showNotification('Вопрос добавлен!');
+            switchTab('editor');
+        }
+
+        function showNotification(message, isError = false) {
+            const notif = document.getElementById('notification');
+            notif.textContent = message;
+            notif.classList.toggle('error', isError);
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 3000);
+        }
+
+        // Обработка сообщений от бота
+        tg.onEvent('messageReceived', function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.action === 'tests_list') displayTests(data.tests);
+            } catch (e) {}
+        });
+
+        // Инициализация
+        loadTests();
+    </script>
+</body>
+</html>

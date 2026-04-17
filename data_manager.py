@@ -268,6 +268,9 @@ def get_tests(only_active: bool = False) -> Dict[str, Dict]:
         questions = []
         for q in cursor.fetchall():
             q_dict = dict(q)
+            # Добавляем алиас "type" для совместимости с кодом в main.py
+            if "question_type" in q_dict:
+                q_dict["type"] = q_dict["question_type"]
             # Парсим options из JSON
             if q_dict.get("options"):
                 try:

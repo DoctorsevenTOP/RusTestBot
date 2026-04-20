@@ -1128,7 +1128,7 @@ async def begin_test(callback: CallbackQuery, state: FSMContext):
 
 async def show_question(message, question, question_num, total):
     """Показать вопрос с вариантами ответов или полем ввода"""
-    q_type = question.get("type", "single")
+    q_type = question.get("type", question.get("question_type", "single"))
     options = question.get("options")
     answer = question.get("answer")
     gaps = question.get("gaps")
@@ -1282,7 +1282,7 @@ async def process_multiple_answer(callback: CallbackQuery, state: FSMContext, se
 
     test = data_manager.get_test(test_id)
     question = test["questions"][current_question]
-    q_type = question.get("type", "single")
+    q_type = question.get("type", question.get("question_type", "single"))
 
     # === insert_letter - проверяем буквы против gaps ===
     if q_type == "insert_letter":
@@ -1392,7 +1392,7 @@ async def process_test_answer(message: Message, state: FSMContext):
     test = data_manager.get_test(test_id)
     question = test["questions"][current_question]
     
-    q_type = question.get("type", "single")
+    q_type = question.get("type", question.get("question_type", "single"))
 
     # Если вопрос с множественным выбором, игнорируем текст
     if q_type == "multiple" or isinstance(question.get("answer"), list):
@@ -2243,7 +2243,7 @@ async def process_test_json(message: Message, test_data: dict):
             await message.answer(f"❌ Ошибка: Вопрос #{i+1} не содержит 'text'")
             return
         
-        q_type = q.get("type", "single")
+        q_type = q.get("type", q.get("question_type", "single"))
         
         # Для insert_letter проверяем gaps и letters
         if q_type == "insert_letter":

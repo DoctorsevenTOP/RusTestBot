@@ -260,7 +260,7 @@ async def cmd_insert_test_list(message: Message):
 
     insert_tests = []
     for test_id, test in tests.items():
-        insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+        insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter" or q.get("type") == "insert_letter"]
         if insert_questions:
             insert_tests.append({
                 "test_id": test_id,
@@ -307,7 +307,7 @@ async def start_insert_test(callback: CallbackQuery, state: FSMContext):
         return
 
     # Фильтруем только вопросы на вставку
-    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter" or q.get("type") == "insert_letter"]
 
     if not insert_questions:
         await callback.answer("В этом тесте нет вопросов на вставку букв", show_alert=True)
@@ -732,7 +732,7 @@ async def handle_webapp_data(message: Message):
             insert_tests = []
             
             for test_id, test in tests.items():
-                insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+                insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter" or q.get("type") == "insert_letter"]
                 if insert_questions:
                     insert_tests.append({
                         "test_id": test_id,
@@ -848,7 +848,7 @@ async def launch_insert_app(callback: CallbackQuery):
         return
     
     # Находим вопросы типа insert_letter
-    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter" or q.get("type") == "insert_letter"]
     
     if not insert_questions or question_idx >= len(insert_questions):
         await callback.answer("Вопрос не найден", show_alert=True)
@@ -903,7 +903,7 @@ async def launch_insert_app(callback: CallbackQuery):
         return
 
     # Находим вопросы типа insert_letter
-    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter"]
+    insert_questions = [q for q in test.get("questions", []) if q.get("question_type") == "insert_letter" or q.get("type") == "insert_letter"]
 
     if not insert_questions or question_idx >= len(insert_questions):
         await callback.answer("Вопрос не найден", show_alert=True)
@@ -1076,7 +1076,7 @@ async def show_tests(message: Message):
     # Фильтруем - только тесты с обычными вопросами
     regular_tests = {}
     for test_id, test in tests.items():
-        has_regular = any(q.get("question_type") != "insert_letter" for q in test.get("questions", []))
+        has_regular = any(q.get("question_type") != "insert_letter" and q.get("type") != "insert_letter" for q in test.get("questions", []))
         if has_regular:
             regular_tests[test_id] = test
 
@@ -2271,7 +2271,7 @@ async def process_test_json(message: Message, test_data: dict):
     data_manager.save_test(test_id, test_data_full)
     
     # Считаем типы вопросов
-    insert_count = sum(1 for q in test_data["questions"] if q.get("type") == "insert_letter")
+    insert_count = sum(1 for q in test_data["questions"] if q.get("type") == "insert_letter" or q.get("question_type") == "insert_letter")
     regular_count = len(test_data["questions"]) - insert_count
 
     type_info = ""

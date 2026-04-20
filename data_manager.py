@@ -110,7 +110,7 @@ def init_db():
             answers TEXT,
             completed_at TEXT,
             FOREIGN KEY (user_id) REFERENCES users(telegram_id),
-            FOREIGN KEY (test_id) REFERENCES tests(test_id)
+            FOREIGN KEY (test_id) REFERENCES tests(test_id) ON DELETE CASCADE
         )
     """)
     

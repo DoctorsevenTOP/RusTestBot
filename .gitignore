@@ -1,22 +1,4 @@
-# Данные бота
-data/
-
-# Кэш Python
+```
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Виртуальное окружение
-venv/
-env/
-.env
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Токен бота (для безопасности)
-config_local.py
+*.pyc
+```

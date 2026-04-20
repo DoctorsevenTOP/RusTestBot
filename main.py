@@ -1766,6 +1766,31 @@ async def toggle_test_by_id(message: Message, test_id: str):
         await message.answer(f"❌ Ошибка: {e}")
 
 
+
+async def delete_test_by_id(message: Message, test_id: str):
+    """Удалить тест по ID"""
+    test = data_manager.get_test(test_id)
+    if not test:
+        await message.answer(f"❌ Тест с ID <code>{test_id}</code> не найден.")
+        return
+    
+    # Показываем подтверждение
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"confirm_delete_{test_id}")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_delete")]
+    ])
+    
+    await message.answer(
+        f"⚠️ <b>Подтверждение удаления</b>\n\n"
+        f"Вы уверены что хотите удалить тест:\n"
+        f"<b>{test['title']}</b> (ID: {test_id})\n\n"
+        f"Это действие нельзя отменить!",
+        reply_markup=keyboard
+    )
+
+
+
+
 # === Удаление теста (для администраторов) ===
 @router.message(Command("delete_test"))
 async def cmd_delete_test(message: Message):

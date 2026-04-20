@@ -430,6 +430,9 @@ def delete_test(test_id: str) -> bool:
         conn.close()
         return False
     
+    # Сначала удаляем результаты, связанные с этим тестом
+    cursor.execute("DELETE FROM results WHERE test_id = ?", (test_id,))
+    
     # Вопросы удалятся каскадно
     cursor.execute("DELETE FROM tests WHERE test_id = ?", (test_id,))
     

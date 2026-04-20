@@ -351,17 +351,17 @@ async def show_insert_question(message: Message, state: FSMContext):
     gaps = question.get("gaps", [])
     letters = question.get("letters", [])
 
-    # Заменяем все .. на пронумерованные пропуски
+    # Заменяем все ___ на пронумерованные пропуски
     gap_number = 0
     parts = []
     last_end = 0
     
-    while ".." in text[last_end:]:
-        gap_pos = text.index("..", last_end)
+    while "___" in text[last_end:]:
+        gap_pos = text.index("___", last_end)
         parts.append(text[last_end:gap_pos])
         gap_number += 1
         parts.append(f"【{gap_number}】")
-        last_end = gap_pos + 2
+        last_end = gap_pos + 3
     
     parts.append(text[last_end:])
     display_text = "".join(parts)
@@ -1138,17 +1138,17 @@ async def show_question(message, question, question_num, total):
     if q_type == "insert_letter" and gaps and letters:
         text = question["text"]
         
-        # Заменяем .. на пронумерованные пропуски
+        # Заменяем ___ на пронумерованные пропуски
         gap_number = 0
         parts = []
         last_end = 0
         
-        while ".." in text[last_end:]:
-            gap_pos = text.index("..", last_end)
+        while "___" in text[last_end:]:
+            gap_pos = text.index("___", last_end)
             parts.append(text[last_end:gap_pos])
             gap_number += 1
             parts.append(f"【{gap_number}】")
-            last_end = gap_pos + 2
+            last_end = gap_pos + 3
         
         parts.append(text[last_end:])
         display_text = "".join(parts)
@@ -1946,7 +1946,7 @@ async def cmd_load_test(message: Message):
         '  "description": "Описание",\n'
         '  "questions": [\n'
         '    {"text": "Вопрос 1", "answer": "Ответ 1"},\n'
-        '    {"type": "insert_letter", "text": "Див..н",\n'
+        '    {"type": "insert_letter", "text": "Див___н",\n'
         '     "gaps": [{"position": 0, "correct": "а"}],\n'
         '     "letters": ["а", "о", "н"]}\n'
         "  ]\n"
@@ -2055,21 +2055,21 @@ async def process_insert_test_text(message: Message, state: FSMContext):
     # Проверяем что это не команда "пропустить"
     if text.lower() == "пропустить":
         await message.answer(
-            "⚠️ На этом шаге нужно ввести текст вопроса с пропусками (..).\n\n"
-            f"<i>Пример: В комнате стоял див..н, который был украше.. узором.</i>\n\n"
+            "⚠️ На этом шаге нужно ввести текст вопроса с пропусками (___).\n\n"
+            f"<i>Пример: В комнате стоял див___н, который был украше___ узором.</i>\n\n"
             f"Если хотите пропустить описание, это нужно было сделать на предыдущем шаге."
         )
         return
     
-    if ".." not in text:
+    if "___" not in text:
         await message.answer(
-            "⚠️ Текст должен содержать минимум один пропуск (..).\n\n"
-            f"<i>Пример: В комнате стоял див..н.</i>\n\n"
+            "⚠️ Текст должен содержать минимум один пропуск (___).\n\n"
+            f"<i>Пример: В комнате стоял див___н.</i>\n\n"
             f"Повторите ввод:"
         )
         return
 
-    gap_count = text.count("..")
+    gap_count = text.count("___")
     await state.update_data(current_text=text, gap_count=gap_count)
     await message.answer(
         f"✅ Текст принят. Найдено пропусков: <b>{gap_count}</b>\n\n"

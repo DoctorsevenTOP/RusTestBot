@@ -172,7 +172,7 @@ async def cmd_help(message: Message):
         text += "➕ Создать тест - Создать обычный тест\n"
         text += "✍️ Создать вставку - Создать тест на вставку букв\n"
         text += "/edit_test - Редактор тестов (Mini App)\n"
-        text += "/export_test <ID> - Экспорт теста в JSON\n"
+        text += "/export_test &lt;ID&gt; - Экспорт теста в JSON\n"
         text += "/load_test - Загрузка теста из JSON\n"
         text += "/toggle_test - Вкл/выкл тесты\n"
         text += "/delete_test - Удалить тест\n"
@@ -187,7 +187,7 @@ async def cmd_help(message: Message):
 
     text += "Бот: Русский язык - Тесты и проверка знаний"
 
-    await message.answer(text)
+    await message.answer(text, parse_mode="HTML")
 
 
 # === Команда /ping ===
@@ -212,7 +212,7 @@ async def cmd_ping(message: Message):
     except Exception as e:
         text += f"\n❌ Права на запись: ERROR - {e}"
     
-    await message.answer(text)
+    await message.answer(text, parse_mode="HTML")
 
 
 # === Команда /me ===
@@ -241,7 +241,7 @@ async def cmd_me(message: Message):
     else:
         text = "❌ Вы ещё не зарегистрированы.\nНажмите /start для начала работы."
 
-    await message.answer(text)
+    await message.answer(text, parse_mode="HTML")
 
 
 # === ✍️ Вставка букв - Список тестов ===
@@ -1023,7 +1023,7 @@ async def cmd_admins(message: Message):
             text += "\n"
 
     text += f"Всего администраторов: {len(admins)}"
-    await message.answer(text)
+    await message.answer(text, parse_mode="HTML")
 
 
 @router.message(WaitForName.waiting_for_name)
@@ -1520,7 +1520,7 @@ async def show_my_results(message: Message):
         text += f"Результат: {r['score']}/{r['total']} ({r['percentage']}%)\n"
         text += f"Дата: {date}\n\n"
 
-    await message.answer(text)
+    await message.answer(text, parse_mode="HTML")
 
 
 # === Создание теста (для администраторов) ===
